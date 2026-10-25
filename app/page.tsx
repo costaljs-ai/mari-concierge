@@ -4,16 +4,21 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 
 export default function Home() {
+  // Navigation / Step state for the conversational intake
+  const [step, setStep] = useState<'welcome' | 'experience' | 'preferences' | 'upload' | 'results'>('welcome');
+  
+  // User profile states
+  const [experienceLevel, setExperienceLevel] = useState<string>('');
+  const [reason, setReason] = useState<string>('');
+  const [desiredEffect, setDesiredEffect] = useState('Balanced & Relaxed');
+  const [consumptionMethod, setConsumptionMethod] = useState('Any / All');
+
+  // File and API analysis states
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  
-  // Custom user preference states
-  const [desiredEffect, setDesiredEffect] = useState('Balanced & Relaxed');
-  const [consumptionMethod, setConsumptionMethod] = useState('Any / All');
-  const [experienceLevel, setExperienceLevel] = useState('Intermediate');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -37,9 +42,10 @@ export default function Home() {
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
+      formData.append('experienceLevel', experienceLevel);
+      formData.append('reason', reason);
       formData.append('desiredEffect', desiredEffect);
       formData.append('consumptionMethod', consumptionMethod);
-      formData.append('experienceLevel', experienceLevel);
 
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -53,6 +59,7 @@ export default function Home() {
       }
 
       setResult(data);
+      setStep('results');
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
@@ -60,7 +67,10 @@ export default function Home() {
     }
   };
 
-  const resetForm = () => {
+  const restartIntake = () => {
+    setStep('welcome');
+    setExperienceLevel('');
+    setReason('');
     setSelectedFile(null);
     setPreviewUrl(null);
     setResult(null);
@@ -71,7 +81,7 @@ export default function Home() {
     <main className="min-h-screen bg-gray-50 text-gray-900 pb-20">
       {/* Centered, Clickable Branding Header */}
       <header className="flex justify-center items-center py-6 border-b border-gray-200 mb-10 bg-white shadow-sm">
-        <Link href="/" onClick={resetForm} className="flex items-center gap-3 group transition-all duration-300 hover:scale-[1.02] cursor-pointer">
+        <Link href="/" onClick={restartIntake} className="flex items-center gap-3 group transition-all duration-300 hover:scale-[1.02] cursor-pointer">
           {/* Integrated Guide Motif Icon */}
           <div className="w-10 h-10 text-[#075A75]">
             <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -94,64 +104,139 @@ export default function Home() {
         </Link>
       </header>
 
-      {/* Main Container */}
-      <div className="max-w-2xl mx-auto px-4">
-        {!result ? (
-          <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-2 text-center">
-              Find Your Perfect Match
+      {/* Main Interactive Flow Container */}
+      <div className="max-w-xl mx-auto px-4">
+        
+        {/* STEP 1: WELCOME / PURPOSE */}
+        {step === 'welcome' && (
+          <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 text-center space-y-6">
+            <h2 className="text-2xl font-bold text-gray-800">
+              Welcome, I'm Mari.
             </h2>
-            <p className="text-gray-600 text-sm mb-6 text-center">
-              Upload a dispensary menu photo and tell Mari what kind of experience you are looking for.
+            <p className="text-gray-600 text-sm">
+              What brings you here today? Let's tailor your experience.
+            </p>
+
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                onClick={() => { setReason('Explore & Learn / New'); setStep('experience'); }}
+                className="p-4 border-2 border-gray-200 hover:border-[#075A75] hover:bg-teal-50/50 rounded-xl text-left transition font-semibold text-gray-800 flex items-center justify-between"
+              >
+                <span>🌿 I'm exploring or new to this</span>
+                <span className="text-[#075A75]">→</span>
+              </button>
+
+              <button
+                onClick={() => { setReason('Curated Recommendations / Experienced'); setStep('experience'); }}
+                className="p-4 border-2 border-gray-200 hover:border-[#075A75] hover:bg-teal-50/50 rounded-xl text-left transition font-semibold text-gray-800 flex items-center justify-between"
+              >
+                <span>⚡ I know what I like, looking for specific matches</span>
+                <span className="text-[#075A75]">→</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 2: EXPERIENCE LEVEL ROUTING */}
+        {step === 'experience' && (
+          <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 space-y-6">
+            <div className="flex items-center justify-between border-b pb-3">
+              <button onClick={() => setStep('welcome')} className="text-sm text-gray-500 hover:text-gray-800">
+                ← Back
+              </button>
+              <span className="text-xs font-bold text-[#075A75] uppercase tracking-wider">Step 2 of 4</span>
+            </div>
+
+            <h2 className="text-xl font-bold text-gray-800 text-center">
+              How would you describe your experience level?
+            </h2>
+
+            <div className="space-y-3">
+              {['Beginner (Looking for gentle, low dose guidance)', 'Intermediate (Casual consumer)', 'Connoisseur (Seeking top-shelf profiles & potencies)'].map((lvl) => (
+                <button
+                  key={lvl}
+                  onClick={() => { setExperienceLevel(lvl); setStep('preferences'); }}
+                  className="w-full p-3.5 border-2 border-gray-200 hover:border-[#075A75] hover:bg-teal-50/50 rounded-xl text-left text-sm font-medium transition text-gray-800"
+                >
+                  {lvl}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3: PREFERENCES */}
+        {step === 'preferences' && (
+          <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 space-y-6">
+            <div className="flex items-center justify-between border-b pb-3">
+              <button onClick={() => setStep('experience')} className="text-sm text-gray-500 hover:text-gray-800">
+                ← Back
+              </button>
+              <span className="text-xs font-bold text-[#075A75] uppercase tracking-wider">Step 3 of 4</span>
+            </div>
+
+            <h2 className="text-xl font-bold text-gray-800 text-center">
+              What kind of effect & method are you looking for?
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Desired Effect</label>
+                <select 
+                  value={desiredEffect} 
+                  onChange={(e) => setDesiredEffect(e.target.value)}
+                  className="w-full p-3 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:ring-[#075A75] focus:border-[#075A75]"
+                >
+                  <option value="Balanced & Relaxed">Balanced & Relaxed</option>
+                  <option value="Energetic & Uplifted">Energetic & Uplifted</option>
+                  <option value="Deep Sleep & Pain Relief">Deep Sleep & Pain Relief</option>
+                  <option value="Creative & Focused">Creative & Focused</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Preferred Method</label>
+                <select 
+                  value={consumptionMethod} 
+                  onChange={(e) => setConsumptionMethod(e.target.value)}
+                  className="w-full p-3 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:ring-[#075A75] focus:border-[#075A75]"
+                >
+                  <option value="Any / All">Any / All</option>
+                  <option value="Flower">Flower</option>
+                  <option value="Vapes & Carts">Vapes & Carts</option>
+                  <option value="Edibles">Edibles</option>
+                  <option value="Concentrates">Concentrates</option>
+                </select>
+              </div>
+
+              <button
+                onClick={() => setStep('upload')}
+                className="w-full py-3 bg-[#075A75] hover:bg-[#05455a] text-white font-semibold rounded-xl shadow transition"
+              >
+                Continue to Menu Upload →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4: MENU UPLOAD & SUBMIT */}
+        {step === 'upload' && (
+          <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 space-y-6">
+            <div className="flex items-center justify-between border-b pb-3">
+              <button onClick={() => setStep('preferences')} className="text-sm text-gray-500 hover:text-gray-800">
+                ← Back
+              </button>
+              <span className="text-xs font-bold text-[#075A75] uppercase tracking-wider">Step 4 of 4</span>
+            </div>
+
+            <h2 className="text-xl font-bold text-gray-800 text-center">
+              Upload Your Dispensary Menu
+            </h2>
+            <p className="text-gray-600 text-sm text-center">
+              Snap a photo or upload a screenshot of the menu so Mari can analyze it against your preferences.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Preferences Selection */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Desired Effect</label>
-                  <select 
-                    value={desiredEffect} 
-                    onChange={(e) => setDesiredEffect(e.target.value)}
-                    className="w-full p-2.5 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:ring-[#075A75] focus:border-[#075A75]"
-                  >
-                    <option value="Balanced & Relaxed">Balanced & Relaxed</option>
-                    <option value="Energetic & Uplifted">Energetic & Uplifted</option>
-                    <option value="Deep Sleep & Pain Relief">Deep Sleep & Pain Relief</option>
-                    <option value="Creative & Focused">Creative & Focused</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Method</label>
-                  <select 
-                    value={consumptionMethod} 
-                    onChange={(e) => setConsumptionMethod(e.target.value)}
-                    className="w-full p-2.5 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:ring-[#075A75] focus:border-[#075A75]"
-                  >
-                    <option value="Any / All">Any / All</option>
-                    <option value="Flower">Flower</option>
-                    <option value="Vapes & Carts">Vapes & Carts</option>
-                    <option value="Edibles">Edibles</option>
-                    <option value="Concentrates">Concentrates</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Experience</label>
-                  <select 
-                    value={experienceLevel} 
-                    onChange={(e) => setExperienceLevel(e.target.value)}
-                    className="w-full p-2.5 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:ring-[#075A75] focus:border-[#075A75]"
-                  >
-                    <option value="Beginner">Beginner</option>
-                    <option value="Intermediate">Intermediate</option>
-                    <option value="Connoisseur">Connoisseur</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* File Upload Box */}
               <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-[#075A75] transition-colors">
                 <input
                   type="file"
@@ -190,19 +275,22 @@ export default function Home() {
                 disabled={loading || !selectedFile}
                 className="w-full py-3 px-4 bg-[#075A75] hover:bg-[#05455a] text-white font-semibold rounded-xl shadow transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Mari is analyzing the menu...' : 'Get Recommendations'}
+                {loading ? 'Mari is analyzing your menu...' : 'Get My Personalized Recommendations'}
               </button>
             </form>
           </div>
-        ) : (
+        )}
+
+        {/* STEP 5: RESULTS */}
+        {step === 'results' && result && (
           <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
               <h2 className="text-xl font-bold text-gray-800">Mari's Recommendations</h2>
               <button
-                onClick={resetForm}
+                onClick={restartIntake}
                 className="text-sm text-[#075A75] font-semibold hover:underline"
               >
-                ← Scan Another Menu
+                ↺ Start Over
               </button>
             </div>
 
@@ -215,6 +303,7 @@ export default function Home() {
             </div>
           </div>
         )}
+
       </div>
     </main>
   );
