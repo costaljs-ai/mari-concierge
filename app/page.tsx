@@ -1,471 +1,167 @@
-"use client";
-import React, { useState } from "react";
-import { SlidersHorizontal, Upload, Sparkles, AlertTriangle, CheckCircle2, RefreshCw, Flame, Leaf, ArrowRight, ArrowLeft, Image as ImageIcon, ShieldCheck, MessageSquareQuote } from "lucide-react";
+'use client';
 
-export default function WeedSommelierApp() {
-  const [currentStep, setCurrentStep] = useState<"step1" | "step2" | "step3" | "dashboard">("step1");
+import React, { useState } from 'react';
+import Link from 'next/link';
 
-  // Onboarding Form State (Clean & Blank for production)
-  const [experienceLevel, setExperienceLevel] = useState<"experienced" | "brand_new">("experienced");
-  const [intent, setIntent] = useState("");
-  
-  const [medicalConditions, setMedicalConditions] = useState("");
-  const [lookingForwardTo, setLookingForwardTo] = useState("");
+export default function Home() {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [lovedItem1, setLovedItem1] = useState("");
-  const [lovedItem2, setLovedItem2] = useState("");
-  const [dislikedItem, setDislikedItem] = useState("");
-
-  const [finalPreferencesText, setFinalPreferencesText] = useState("");
-
-  // File & Live API State
-  const [uploadedFileObj, setUploadedFileObj] = useState<File | null>(null);
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanResult, setScanResult] = useState<any | null>(null);
-  const [apiError, setApiError] = useState<string | null>(null);
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setUploadedFileObj(file);
-      setUploadedFileName(file.name);
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+      setError(null);
     }
   };
 
-  const handleScanMenu = async () => {
-    if (!uploadedFileObj) {
-      alert("Please upload a menu screenshot first!");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile) {
+      setError('Please select or snap a picture of a menu first.');
       return;
     }
 
-    setIsScanning(true);
-    setApiError(null);
-    setScanResult(null);
-
-    const userProfile = {
-      experienceLevel,
-      intent: intent || "Looking for a balanced wellness experience.",
-      medicalConditions: experienceLevel === "brand_new" ? medicalConditions : null,
-      lookingForwardTo: experienceLevel === "brand_new" ? lookingForwardTo : null,
-      preferences: experienceLevel === "experienced" ? { lovedItem1, lovedItem2, dislikedItem } : null,
-      finalNotes: finalPreferencesText
-    };
-
-    const formData = new FormData();
-    formData.append("image", uploadedFileObj);
-    formData.append("profile", JSON.stringify(userProfile));
+    setLoading(true);
+    setError(null);
 
     try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
         body: formData,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to analyze menu.");
+      const data = await response.json();
 
-      setScanResult(data);
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to analyze the menu.');
+      }
+
+      setResult(data);
     } catch (err: any) {
-      setApiError(err.message);
+      setError(err.message || 'Something went wrong. Please try again.');
     } finally {
-      setIsScanning(false);
+      setLoading(false);
     }
   };
 
+  const resetForm = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setResult(null);
+    setError(null);
+  };
+
   return (
-    <main className="min-h-screen bg-[#F7F5F0] text-[#2C3E35] font-sans selection:bg-[#075A75] selection:text-white">
-
-<header className="flex justify-center items-center py-6 border-b border-gray-200 mb-10">
-  <a href="/" className="flex items-center gap-3 group transition-all duration-300 hover:scale-[1.02]">
-    {/* The Integrated Guide Motif Icon (Shield/Wave/Leaf) */}
-    <div className="w-10 h-10 text-[#075A75]">
-      <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M50 10C50 10 85 20 85 50C85 65 80 80 50 90C20 80 15 65 15 50C15 20 50 10 50 10Z" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M35 50C35 50 42 40 50 45C58 50 65 40 65 50C65 57 60 63 50 63C40 63 35 57 35 50Z" fill="currentColor"/>
-        <path d="M50 25V35" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
-        <path d="M45 30H55" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
-      </svg>
-    </div>
-    
-    {/* The Branding Text "Mari the Concierge" */}
-    <div className="flex flex-col">
-      <h1 className="text-3xl font-extrabold text-[#075A75]">
-        Mari
-      </h1>
-      <span className="text-sm text-gray-600 -mt-1 font-medium tracking-wide">
-        the Concierge
-      </span>
-    </div>
-  </a>
-</header>
-
-// ---------------------------------------------------------->
-
-      <div className="max-w-3xl mx-auto px-4 py-10">
-        {currentStep !== "dashboard" ? (
-          <div className="bg-[#FAF8F5] border border-[#E5E0D5] rounded-3xl p-6 sm:p-10 shadow-xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-[#EFECE6]">
-              <div 
-                className="h-full bg-[#075A75] transition-all duration-300 rounded-r-full"
-                style={{ width: currentStep === "step1" ? "33%" : currentStep === "step2" ? "66%" : "100%" }}
-              ></div>
-            </div>
-
-            {currentStep === "step1" && (
-              <div className="space-y-6 animate-fadeIn">
-                <div className="space-y-2 pb-4 border-b border-[#E5E0D5]">
-                  <span className="text-xs font-bold uppercase tracking-widest text-[#075A75]">Welcome to The Mari Concierge</span>
-                  <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#2C3E35]">
-                    Find your perfect match, tailored to your desired outcome and preferences.
-                  </h1>
-                  <p className="text-sm text-[#6B7C73] leading-relaxed">
-                    Answer a few quick questions, upload a screenshot of the dispensary menu you’re looking at, and Mari will give you a detailed breakdown of what to expect and how well it fits your vibe.
-                  </p>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3">
-                    <div className="bg-[#F7F5F0] border border-[#E5E0D5] p-2.5 rounded-xl text-xs text-[#2C3E35] flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-[#075A75] text-white font-bold flex items-center justify-center text-[10px] shrink-0">1</span>
-                      <span>Share your vibe</span>
-                    </div>
-                    <div className="bg-[#F7F5F0] border border-[#E5E0D5] p-2.5 rounded-xl text-xs text-[#2C3E35] flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-[#075A75] text-white font-bold flex items-center justify-center text-[10px] shrink-0">2</span>
-                      <span>Upload your menu</span>
-                    </div>
-                    <div className="bg-[#F7F5F0] border border-[#E5E0D5] p-2.5 rounded-xl text-xs text-[#2C3E35] flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-[#075A75] text-white font-bold flex items-center justify-center text-[10px] shrink-0">3</span>
-                      <span>Get your match</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-[#075A75] block">What brings you in today? (Your Intent & Vibe)</label>
-                    <textarea
-                      rows={3}
-                      value={intent}
-                      onChange={(e) => setIntent(e.target.value)}
-                      className="w-full bg-[#F7F5F0] border border-[#E5E0D5] rounded-2xl p-4 text-sm text-[#2C3E35] focus:outline-none focus:border-[#075A75] transition shadow-inner"
-                      placeholder="e.g., Unwinding after work, relieving sore joints, or looking for a joyful weekend vibe..."
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-[#075A75] block">Are you brand new to cannabis or experienced?</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setExperienceLevel("experienced")}
-                        className={`p-3.5 rounded-2xl border text-xs font-bold transition text-center ${
-                          experienceLevel === "experienced"
-                            ? "bg-[#075A75]/15 border-[#075A75] text-[#075A75] shadow-sm"
-                            : "bg-[#F7F5F0] border-[#E5E0D5] text-[#6B7C73] hover:border-[#D5CFBE]"
-                        }`}
-                      >
-                        I have experience
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setExperienceLevel("brand_new")}
-                        className={`p-3.5 rounded-2xl border text-xs font-bold transition text-center ${
-                          experienceLevel === "brand_new"
-                            ? "bg-[#075A75]/15 border-[#075A75] text-[#075A75] shadow-sm"
-                            : "bg-[#F7F5F0] border-[#E5E0D5] text-[#6B7C73] hover:border-[#D5CFBE]"
-                        }`}
-                      >
-                        I am brand new
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <button
-                    onClick={() => setCurrentStep("step2")}
-                    className="bg-[#075A75] hover:bg-[#05465c] text-[#FAF8F5] font-semibold px-7 py-3 rounded-2xl text-sm transition flex items-center gap-2 shadow-md shadow-[#075A75]/20"
-                  >
-                    Next <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {currentStep === "step2" && (
-              <div className="space-y-6 animate-fadeIn">
-                {experienceLevel === "experienced" ? (
-                  <>
-                    <div>
-                      <span className="text-xs font-bold uppercase tracking-widest text-[#075A75]">Step 2 of 3</span>
-                      <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#2C3E35] mt-1">Calibrate Your Vibes</h1>
-                      <p className="text-sm text-[#6B7C73] mt-1.5">
-                        Tell us about <strong>2 things you've loved</strong> and <strong>1 thing you didn't</strong> to help us personalize even more!
-                      </p>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-xs font-semibold text-[#075A75] block mb-1">💚 Loved Item #1</label>
-                        <input
-                          type="text"
-                          value={lovedItem1}
-                          onChange={(e) => setLovedItem1(e.target.value)}
-                          className="w-full bg-[#F7F5F0] border border-[#E5E0D5] rounded-xl p-3.5 text-sm text-[#2C3E35] focus:outline-none focus:border-[#075A75] transition shadow-inner"
-                          placeholder="e.g., A savory garlic vape that melted my body tension"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-xs font-semibold text-[#075A75] block mb-1">💚 Loved Item #2</label>
-                        <input
-                          type="text"
-                          value={lovedItem2}
-                          onChange={(e) => setLovedItem2(e.target.value)}
-                          className="w-full bg-[#F7F5F0] border border-[#E5E0D5] rounded-xl p-3.5 text-sm text-[#2C3E35] focus:outline-none focus:border-[#075A75] transition shadow-inner"
-                          placeholder="e.g., A sweet creamy dessert strain with great mood lift"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-xs font-semibold text-[#A25E55] block mb-1">❌ Not My Vibe (1 thing you didn't enjoy)</label>
-                        <input
-                          type="text"
-                          value={dislikedItem}
-                          onChange={(e) => setDislikedItem(e.target.value)}
-                          className="w-full bg-[#F7F5F0] border border-[#E5E0D5] rounded-xl p-3.5 text-sm text-[#2C3E35] focus:outline-none focus:border-[#A25E55] transition shadow-inner"
-                          placeholder="e.g., Sharp pine-sol strain that gave me anxiety"
-                        />
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <span className="text-xs font-bold uppercase tracking-widest text-[#075A75]">Step 2 of 3 (New Explorer Guidance)</span>
-                      <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#2C3E35] mt-1">Welcome to Your Wellness Journey</h1>
-                      <p className="text-sm text-[#6B7C73] mt-1.5">
-                        As your personal pharmacist-style guide, Mari is here to help you start slow, find comfortable settings, and explore safely.
-                      </p>
-                    </div>
-
-                    <div className="space-y-4 bg-[#F7F5F0] border border-[#E5E0D5] rounded-2xl p-5">
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-[#075A75] block">What medical conditions or symptoms are you trying to help medicate?</label>
-                        <input
-                          type="text"
-                          value={medicalConditions}
-                          onChange={(e) => setMedicalConditions(e.target.value)}
-                          className="w-full bg-[#FAF8F5] border border-[#E5E0D5] rounded-xl p-3.5 text-sm text-[#2C3E35] focus:outline-none focus:border-[#075A75] transition shadow-inner"
-                          placeholder="e.g., Chronic pain, sleep trouble, or mild anxiety..."
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-[#075A75] block">What are you looking forward to experiencing?</label>
-                        <input
-                          type="text"
-                          value={lookingForwardTo}
-                          onChange={(e) => setLookingForwardTo(e.target.value)}
-                          className="w-full bg-[#FAF8F5] border border-[#E5E0D5] rounded-xl p-3.5 text-sm text-[#2C3E35] focus:outline-none focus:border-[#075A75] transition shadow-inner"
-                          placeholder="e.g., Gentle physical relaxation in a cozy setting..."
-                        />
-                      </div>
-
-                      <div className="p-3 bg-[#075A75]/10 border border-[#075A75]/30 rounded-xl text-xs text-[#075A75] font-medium leading-relaxed">
-                        💡 <strong>Pharmacist Tip:</strong> Always start small (low dose) and consume in comfortable, familiar settings.
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <div className="flex justify-between pt-4">
-                  <button
-                    onClick={() => setCurrentStep("step1")}
-                    className="bg-[#EFECE6] hover:bg-[#E5E0D5] text-[#2C3E35] font-medium px-5 py-3 rounded-2xl text-sm transition flex items-center gap-2 border border-[#E5E0D5]"
-                  >
-                    <ArrowLeft className="w-4 h-4" /> Back
-                  </button>
-                  <button
-                    onClick={() => setCurrentStep("step3")}
-                    className="bg-[#075A75] hover:bg-[#05465c] text-[#FAF8F5] font-semibold px-7 py-3 rounded-2xl text-sm transition flex items-center gap-2 shadow-md shadow-[#075A75]/20"
-                  >
-                    Next <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {currentStep === "step3" && (
-              <div className="space-y-6 animate-fadeIn">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-widest text-[#075A75]">Step 3 of 3</span>
-                  <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#2C3E35] mt-1">Anything else you want us to know?</h1>
-                  <p className="text-sm text-[#6B7C73] mt-1.5">
-                    Please describe your preferred ingestion method and anything you are concerned about or want to avoid in your experience.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-[#075A75] block">Open Preferences & Final Details</label>
-                  <textarea
-                    rows={6}
-                    value={finalPreferencesText}
-                    onChange={(e) => setFinalPreferencesText(e.target.value)}
-                    className="w-full bg-[#F7F5F0] border border-[#E5E0D5] rounded-2xl p-4 text-sm text-[#2C3E35] focus:outline-none focus:border-[#075A75] transition shadow-inner"
-                    placeholder="e.g., Preferred ingestion method: Dry herb vaporizer. Please avoid heavy couch-lock or racy heart rates..."
-                  />
-                </div>
-
-                <div className="flex justify-between pt-4">
-                  <button
-                    onClick={() => setCurrentStep("step2")}
-                    className="bg-[#EFECE6] hover:bg-[#E5E0D5] text-[#2C3E35] font-medium px-5 py-3 rounded-2xl text-sm transition flex items-center gap-2 border border-[#E5E0D5]"
-                  >
-                    <ArrowLeft className="w-4 h-4" /> Back
-                  </button>
-                  <button
-                    onClick={() => setCurrentStep("dashboard")}
-                    className="bg-[#075A75] hover:bg-[#05465c] text-[#FAF8F5] font-semibold px-7 py-3 rounded-2xl text-sm transition flex items-center gap-2 shadow-md shadow-[#075A75]/20"
-                  >
-                    <Sparkles className="w-4 h-4" /> Meet Mari & Upload Menu <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+    <main className="min-h-screen bg-gray-50 text-gray-900 pb-20">
+      {/* Centered, Clickable Branding Header */}
+      <header className="flex justify-center items-center py-6 border-b border-gray-200 mb-10 bg-white shadow-sm">
+        <Link href="/" onClick={resetForm} className="flex items-center gap-3 group transition-all duration-300 hover:scale-[1.02] cursor-pointer">
+          {/* Integrated Guide Motif Icon */}
+          <div className="w-10 h-10 text-[#075A75]">
+            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M50 10C50 10 85 20 85 50C85 65 80 80 50 90C20 80 15 65 15 50C15 20 50 10 50 10Z" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M35 50C35 50 42 40 50 45C58 50 65 40 65 50C65 57 60 63 50 63C40 63 35 57 35 50Z" fill="currentColor"/>
+              <path d="M50 25V35" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+              <path d="M45 30H55" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+            </svg>
           </div>
-        ) : (
-          <div className="space-y-8 animate-fadeIn">
-            <div className="bg-[#FAF8F5] border border-[#E5E0D5] rounded-3xl p-6 shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs uppercase tracking-wider font-bold text-[#075A75] bg-[#075A75]/15 px-2.5 py-1 rounded-md border border-[#075A75]/30">Mari's Concierge Active</span>
-                  <span className="text-xs text-[#6B7C73]">Experience: {experienceLevel === "brand_new" ? "New Explorer" : "Experienced"}</span>
-                </div>
-                <h2 className="text-base font-bold text-[#2C3E35] mt-2">"{intent ? intent.slice(0, 70) + '...' : 'Custom Wellness Profile Active'}"</h2>
-              </div>
-              <button 
-                onClick={() => setCurrentStep("step1")}
-                className="bg-[#EFECE6] hover:bg-[#E5E0D5] text-[#2C3E35] px-4 py-2.5 rounded-xl text-xs font-medium border border-[#E5E0D5] transition shadow-sm"
-              >
-                Edit Preferences
-              </button>
-            </div>
+          
+          {/* Branding Text */}
+          <div className="flex flex-col">
+            <h1 className="text-3xl font-extrabold text-[#075A75] leading-none">
+              Mari
+            </h1>
+            <span className="text-sm text-gray-600 font-medium tracking-wide mt-1">
+              the Concierge
+            </span>
+          </div>
+        </Link>
+      </header>
 
-            <div className="bg-[#FAF8F5] border border-[#E5E0D5] rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
-              <div>
-                <h3 className="text-xl font-extrabold text-[#2C3E35] flex items-center gap-2">
-                  <Upload className="w-5 h-5 text-[#075A75]" /> Upload Dispensary Menu or Jar Label
-                </h3>
-                <p className="text-xs sm:text-sm text-[#6B7C73] mt-1">
-                  Drop your screenshot below. Mari will instantly parse batch lab COAs and give you a budtender script!
-                </p>
-              </div>
+      {/* Main Container */}
+      <div className="max-w-2xl mx-auto px-4">
+        {!result ? (
+          <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8">
+            <h2 className="text-xl font-bold text-gray-800 mb-2 text-center">
+              Find Your Perfect Match
+            </h2>
+            <p className="text-gray-600 text-sm mb-6 text-center">
+              Upload a photo or screenshot of a dispensary menu to get personalized recommendations.
+            </p>
 
-              <div className="border-2 border-dashed border-[#D5CFBE] hover:border-[#075A75] bg-[#F7F5F0] rounded-2xl p-6 text-center transition relative">
-                <input 
-                  type="file" 
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-[#075A75] transition-colors">
+                <input
+                  type="file"
                   accept="image/*"
-                  onChange={handleFileUpload}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  id="menu-upload"
                 />
-                <div className="flex flex-col items-center justify-center space-y-2">
-                  <div className="p-3 bg-[#FAF8F5] rounded-full shadow-sm border border-[#E5E0D5]">
-                    <ImageIcon className="w-6 h-6 text-[#075A75]" />
-                  </div>
-                  {uploadedFileName ? (
-                    <div className="space-y-1">
-                      <p className="text-sm font-bold text-[#075A75]">Uploaded: {uploadedFileName}</p>
-                      <p className="text-xs text-[#6B7C73]">Click or drag a new image to replace</p>
-                    </div>
+                <label htmlFor="menu-upload" className="cursor-pointer flex flex-col items-center">
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="Menu Preview"
+                      className="max-h-48 rounded-lg object-contain mb-4 shadow"
+                    />
                   ) : (
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-[#2C3E35]">Click to upload menu screenshot or drag & drop here</p>
-                      <p className="text-xs text-[#6B7C73]">PNG, JPG, HEIC up to 10MB</p>
+                    <div className="w-12 h-12 bg-teal-50 text-[#075A75] rounded-full flex items-center justify-center mb-3">
+                      📸
                     </div>
                   )}
-                </div>
+                  <span className="text-sm font-semibold text-gray-700">
+                    {selectedFile ? selectedFile.name : 'Click to upload or snap a menu photo'}
+                  </span>
+                  <span className="text-xs text-gray-500 mt-1">Supports JPG, PNG, WEBP</span>
+                </label>
               </div>
 
-              {apiError && (
-                <div className="bg-[#A25E55]/10 border border-[#A25E55]/30 rounded-xl p-4 text-xs text-[#A25E55]">
-                  <strong>API Error:</strong> {apiError}
+              {error && (
+                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+                  {error}
                 </div>
               )}
 
-              <div className="flex justify-end">
-                <button
-                  onClick={handleScanMenu}
-                  disabled={isScanning}
-                  className="bg-[#075A75] hover:bg-[#05465c] disabled:opacity-50 text-[#FAF8F5] font-bold px-7 py-3 rounded-2xl text-sm transition flex items-center gap-2 shadow-md shadow-[#075A75]/20"
-                >
-                  {isScanning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  {isScanning ? "Mari is Analyzing Lab COAs..." : "Run Mari's Analysis"}
-                </button>
-              </div>
+              <button
+                type="submit"
+                disabled={loading || !selectedFile}
+                className="w-full py-3 px-4 bg-[#075A75] hover:bg-[#05455a] text-white font-semibold rounded-xl shadow transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Analyzing Menu...' : 'Get Recommendations'}
+              </button>
+            </form>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h2 className="text-xl font-bold text-gray-800">Your Recommendations</h2>
+              <button
+                onClick={resetForm}
+                className="text-sm text-[#075A75] font-semibold hover:underline"
+              >
+                ← Scan Another Menu
+              </button>
+            </div>
 
-              {scanResult && (
-                <div className="space-y-4 pt-6 border-t border-[#E5E0D5] animate-fadeIn">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#075A75]">Mari's Live Analysis</span>
-                    <span className="text-xs text-[#6B7C73]">{scanResult.snapshot}</span>
-                  </div>
-
-                  {scanResult.top_matches?.map((match: any, idx: number) => (
-                    <div key={idx} className="bg-[#FAF8F5] border border-[#075A75]/40 rounded-2xl p-5 relative overflow-hidden shadow-sm space-y-3">
-                      <div className="absolute top-0 right-0 bg-[#075A75] text-[#FAF8F5] text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-sm">
-                        {match.match_score} ({match.confidence})
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] uppercase px-2.5 py-0.5 rounded-md bg-[#075A75]/15 text-[#075A75] font-bold">#{match.rank || idx + 1} Pick</span>
-                          <h4 className="font-extrabold text-[#2C3E35] text-base">{match.name} <span className="text-xs font-normal text-[#6B7C73]">({match.brand})</span></h4>
-                        </div>
-                        <p className="text-xs text-[#4A5D52] leading-relaxed">
-                          <strong>Why Mari recommends this:</strong> {match.why_it_fits}
-                        </p>
-                      </div>
-
-                      {/* Budtender Script Box */}
-                      {match.budtender_script && (
-                        <div className="bg-[#075A75]/10 border border-[#075A75]/30 rounded-xl p-3 flex items-start gap-2.5">
-                          <MessageSquareQuote className="w-4 h-4 text-[#075A75] shrink-0 mt-0.5" />
-                          <div>
-                            <span className="text-[11px] font-bold text-[#075A75] uppercase tracking-wide block">Budtender Script / Counter Check:</span>
-                            <p className="text-xs text-[#2C3E35] italic mt-0.5">"{match.budtender_script}"</p>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        {match.thc && <span className="text-[11px] bg-[#F7F5F0] border border-[#E5E0D5] px-2.5 py-1 rounded-md text-[#2C3E35] font-medium">THC: {match.thc}</span>}
-                        {match.terpenes && <span className="text-[11px] bg-[#F7F5F0] border border-[#E5E0D5] px-2.5 py-1 rounded-md text-[#2C3E35] font-medium">Terpenes: {match.terpenes}</span>}
-                        {match.lineage && <span className="text-[11px] bg-[#075A75]/10 border border-[#075A75]/30 px-2.5 py-1 rounded-md text-[#075A75] font-medium">Lineage: {match.lineage}</span>}
-                      </div>
-                    </div>
-                  ))}
-
-                  {scanResult.red_flag && (
-                    <div className="bg-[#A25E55]/10 border border-[#A25E55]/30 rounded-2xl p-4 flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-[#A25E55] shrink-0 mt-0.5" />
-                      <div>
-                        <h5 className="text-xs font-bold text-[#A25E55]">Mari's Gentle Warning: Skip "{scanResult.red_flag.strain}"</h5>
-                        <p className="text-xs text-[#8A4F46] mt-0.5">{scanResult.red_flag.reason}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+            <div className="prose text-gray-700 space-y-4">
+              {typeof result.analysis === 'string' ? (
+                <p className="whitespace-pre-wrap">{result.analysis}</p>
+              ) : (
+                <div>{JSON.stringify(result.analysis, null, 2)}</div>
               )}
             </div>
           </div>
         )}
       </div>
-
-      <footer className="max-w-3xl mx-auto px-4 py-6 text-center text-[11px] text-[#8C9C93] border-t border-[#E5E0D5] mt-12 flex items-center justify-center gap-2">
-        <ShieldCheck className="w-4 h-4 text-[#075A75] shrink-0" />
-        <span>
-          <strong>Disclaimer:</strong> The Mari Concierge is an AI terpene and preference research assistant, not a licensed medical provider or pharmacist. Always consult your healthcare professional regarding treatment plans.
-        </span>
-      </footer>
     </main>
   );
 }
