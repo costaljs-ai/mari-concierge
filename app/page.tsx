@@ -9,6 +9,11 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Custom user preference states
+  const [desiredEffect, setDesiredEffect] = useState('Balanced & Relaxed');
+  const [consumptionMethod, setConsumptionMethod] = useState('Any / All');
+  const [experienceLevel, setExperienceLevel] = useState('Intermediate');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -32,6 +37,9 @@ export default function Home() {
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
+      formData.append('desiredEffect', desiredEffect);
+      formData.append('consumptionMethod', consumptionMethod);
+      formData.append('experienceLevel', experienceLevel);
 
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -94,10 +102,56 @@ export default function Home() {
               Find Your Perfect Match
             </h2>
             <p className="text-gray-600 text-sm mb-6 text-center">
-              Upload a photo or screenshot of a dispensary menu to get personalized recommendations.
+              Upload a dispensary menu photo and tell Mari what kind of experience you are looking for.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Preferences Selection */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Desired Effect</label>
+                  <select 
+                    value={desiredEffect} 
+                    onChange={(e) => setDesiredEffect(e.target.value)}
+                    className="w-full p-2.5 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:ring-[#075A75] focus:border-[#075A75]"
+                  >
+                    <option value="Balanced & Relaxed">Balanced & Relaxed</option>
+                    <option value="Energetic & Uplifted">Energetic & Uplifted</option>
+                    <option value="Deep Sleep & Pain Relief">Deep Sleep & Pain Relief</option>
+                    <option value="Creative & Focused">Creative & Focused</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Method</label>
+                  <select 
+                    value={consumptionMethod} 
+                    onChange={(e) => setConsumptionMethod(e.target.value)}
+                    className="w-full p-2.5 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:ring-[#075A75] focus:border-[#075A75]"
+                  >
+                    <option value="Any / All">Any / All</option>
+                    <option value="Flower">Flower</option>
+                    <option value="Vapes & Carts">Vapes & Carts</option>
+                    <option value="Edibles">Edibles</option>
+                    <option value="Concentrates">Concentrates</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Experience</label>
+                  <select 
+                    value={experienceLevel} 
+                    onChange={(e) => setExperienceLevel(e.target.value)}
+                    className="w-full p-2.5 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:ring-[#075A75] focus:border-[#075A75]"
+                  >
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Connoisseur">Connoisseur</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* File Upload Box */}
               <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-[#075A75] transition-colors">
                 <input
                   type="file"
@@ -136,14 +190,14 @@ export default function Home() {
                 disabled={loading || !selectedFile}
                 className="w-full py-3 px-4 bg-[#075A75] hover:bg-[#05455a] text-white font-semibold rounded-xl shadow transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Analyzing Menu...' : 'Get Recommendations'}
+                {loading ? 'Mari is analyzing the menu...' : 'Get Recommendations'}
               </button>
             </form>
           </div>
         ) : (
           <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
-              <h2 className="text-xl font-bold text-gray-800">Your Recommendations</h2>
+              <h2 className="text-xl font-bold text-gray-800">Mari's Recommendations</h2>
               <button
                 onClick={resetForm}
                 className="text-sm text-[#075A75] font-semibold hover:underline"
