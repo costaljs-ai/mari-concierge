@@ -75,27 +75,32 @@ export default function WeedSommelierApp() {
 
   return (
     <main className="min-h-screen bg-[#F7F5F0] text-[#2C3E35] font-sans selection:bg-[#075A75] selection:text-white">
-      <header className="border-b border-[#E5E0D5] bg-[#FAF8F5]/85 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="bg-[#075A75] text-[#FAF8F5] p-2.5 rounded-2xl font-bold flex items-center gap-2 shadow-md shadow-[#075A75]/10">
-            <Leaf className="w-5 h-5" />
-            <span className="tracking-tight text-sm uppercase font-black">The Mari Concierge</span>
-          </div>
-          <span className="text-xs text-[#6B7C73] hidden sm:inline-block border-l border-[#E5E0D5] pl-3 font-medium">
-            Personalized for the best experience 🌿✨
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          {currentStep === "dashboard" && (
-            <button 
-              onClick={() => setCurrentStep("step1")}
-              className="text-xs bg-[#EFECE6] hover:bg-[#E5E0D5] text-[#2C3E35] px-3.5 py-2 rounded-xl border border-[#E5E0D5] transition flex items-center gap-1.5 font-medium"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Re-tune Profile
-            </button>
-          )}
-        </div>
-      </header>
+
+<header className="flex justify-center items-center py-6 border-b border-gray-200 mb-10">
+  <a href="/" className="flex items-center gap-3 group transition-all duration-300 hover:scale-[1.02]">
+    {/* The Integrated Guide Motif Icon (Shield/Wave/Leaf) */}
+    <div className="w-10 h-10 text-[#075A75]">
+      <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M50 10C50 10 85 20 85 50C85 65 80 80 50 90C20 80 15 65 15 50C15 20 50 10 50 10Z" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M35 50C35 50 42 40 50 45C58 50 65 40 65 50C65 57 60 63 50 63C40 63 35 57 35 50Z" fill="currentColor"/>
+        <path d="M50 25V35" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+        <path d="M45 30H55" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+      </svg>
+    </div>
+    
+    {/* The Branding Text "Mari the Concierge" */}
+    <div className="flex flex-col">
+      <h1 className="text-3xl font-extrabold text-[#075A75]">
+        Mari
+      </h1>
+      <span className="text-sm text-gray-600 -mt-1 font-medium tracking-wide">
+        the Concierge
+      </span>
+    </div>
+  </a>
+</header>
+
+// ---------------------------------------------------------->
 
       <div className="max-w-3xl mx-auto px-4 py-10">
         {currentStep !== "dashboard" ? (
