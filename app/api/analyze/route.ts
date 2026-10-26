@@ -21,8 +21,6 @@ export async function POST(req: Request) {
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-    // --- NEW: Enterprise Fallback Function ---
-    // This will try 3.8-flash. If Google servers are busy (503), it instantly falls back to 4-argon.
     const generateWithFallback = async (promptText: string, imagePart?: any) => {
       const models = ['gemini-3.8-flash', 'gemini-4-argon'];
       let lastError;
@@ -36,16 +34,14 @@ export async function POST(req: Request) {
         } catch (error: any) {
           console.warn(`Model ${modelName} failed:`, error.message);
           lastError = error;
-          // If the error is NOT a 503 (server busy) or 429 (rate limit), don't bother retrying, just throw it.
           if (!error.message.includes('503') && !error.message.includes('429') && !error.message.includes('unavailable')) {
             throw error;
           }
         }
       }
-      throw lastError; // If all fallback models are busy, then we finally throw the error.
+      throw lastError; 
     };
 
-    // Handle Follow-Up Chat
     if (chatHistory && Array.isArray(chatHistory)) {
       const prompt = `You are Mari the Concierge, a highly knowledgeable cannabis guide. 
       The user is on the ${track} track. 
@@ -58,7 +54,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ analysis: analysisText });
     }
 
-    // Handle Initial Image Upload
     if (!image) {
       return NextResponse.json({ error: 'No menu image provided.' }, { status: 400 });
     }

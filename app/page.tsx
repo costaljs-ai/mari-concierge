@@ -17,10 +17,8 @@ export default function Home() {
   const [chatInput, setChatInput] = useState('');
   
   const chatEndRef = useRef<HTMLDivElement>(null);
-  // NEW: AbortController to cancel stale network requests if user restarts
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // NEW: Revoke Object URL to prevent memory leaks
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -78,7 +76,6 @@ export default function Home() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       
-      // NEW: Validate file type and size
       const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
       if (!validTypes.includes(file.type)) {
         setError('Please upload a valid image (JPG, PNG, or WEBP).');
@@ -103,7 +100,6 @@ export default function Home() {
     setLoading(true);
     setError(null);
 
-    // Cancel any existing request
     if (abortControllerRef.current) abortControllerRef.current.abort();
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
@@ -135,7 +131,7 @@ export default function Home() {
       setChatMessages([{ role: 'mari', content: data.analysis }]);
       setStep('results');
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') return; // Ignore cancellations
+      if (err instanceof Error && err.name === 'AbortError') return; 
       const errorMessage = err instanceof Error ? err.message : 'Something went wrong.';
       setError(errorMessage);
     } finally {
@@ -150,7 +146,6 @@ export default function Home() {
     const userMsg = chatInput;
     setChatInput('');
     
-    // FIX: Build the new history array to send to the backend, avoiding stale state
     const newChatHistory = [...chatMessages, { role: 'user', content: userMsg }];
     setChatMessages(newChatHistory);
     setLoading(true);
@@ -193,11 +188,11 @@ export default function Home() {
   }, [chatMessages]);
 
   const restartIntake = () => {
-    if (abortControllerRef.current) abortControllerRef.current.abort(); // Cancel active loads
+    if (abortControllerRef.current) abortControllerRef.current.abort(); 
     setStep('welcome');
     setPreferences('');
     setSelectedFile(null);
-    if (previewUrl) URL.revokeObjectURL(previewUrl); // Cleanup
+    if (previewUrl) URL.revokeObjectURL(previewUrl); 
     setPreviewUrl(null);
     setChatMessages([]);
     setError(null);
@@ -222,30 +217,63 @@ export default function Home() {
         </button>
       </header>
 
-      <div className="max-w-xl mx-auto px-4">
+      <div className="max-w-2xl mx-auto px-4">
         {step === 'welcome' && (
-          <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 text-center space-y-6">
-            <h2 className="text-2xl font-bold text-gray-800">Welcome, I'm Mari.</h2>
-            <p className="text-gray-600 text-sm">What brings you here today? Let's tailor your experience.</p>
-            <div className="grid grid-cols-1 gap-3">
+          <div className="bg-white rounded-2xl shadow-md p-6 sm:p-10 space-y-8">
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-bold text-gray-900">Welcome. I'm Mari.</h2>
+              <p className="text-gray-600 font-medium text-lg">Your personal AI cannabis concierge.</p>
+            </div>
+
+            <div className="text-gray-700 space-y-6">
+              <p className="leading-relaxed">
+                Navigating a dispensary menu can feel like a guessing game, whether it's your first time or your fiftieth. I'm here to take the guesswork out of finding the perfect product. You tell me how you want to feel, and I'll do the heavy lifting to find exactly what you need.
+              </p>
+              
+              <div className="space-y-4">
+                <p className="font-bold text-gray-900 text-lg">Here is what you can expect:</p>
+                <ol className="list-decimal pl-5 space-y-4 marker:text-[#075A75] marker:font-bold">
+                  <li className="pl-2">
+                    <strong className="text-gray-900">Share your goals:</strong> Tell me what kind of relief, vibe, or feeling you're looking for in your own words.
+                  </li>
+                  <li className="pl-2">
+                    <strong className="text-gray-900">Drop a menu:</strong> Upload a screenshot or photo of any local dispensary menu. The more details, the better—menus showing full lab results or terpene profiles will give you the most accurate matches.
+                  </li>
+                  <li className="pl-2">
+                    <strong className="text-gray-900">Get your matches:</strong> I’ll instantly read the menu, rank the top 3 best options for you, and explain exactly why their specific effects and terpenes match your goals.
+                  </li>
+                </ol>
+              </div>
+
+              <p className="pt-4 font-medium text-center text-gray-800">
+                Ready to find your perfect match? Select your experience level below so I know exactly how to guide our conversation today:
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
               <button
                 onClick={() => { setUserTrack('Beginner'); setStep('preferences'); }}
-                className="p-4 border-2 border-gray-200 hover:border-[#075A75] hover:bg-teal-50/50 rounded-xl text-left transition font-semibold text-gray-800 flex items-center justify-between"
+                className="p-5 border-2 border-gray-200 hover:border-[#075A75] hover:bg-teal-50/50 rounded-xl text-left transition font-semibold text-gray-800 flex items-center justify-between group"
               >
-                <span>🌿 I'm exploring or new to this</span>
-                <span className="text-[#075A75]">→</span>
+                <span className="flex items-center gap-3">
+                  <span className="text-2xl">🌿</span> 
+                  I'm exploring or new to this
+                </span>
+                <span className="text-[#075A75] transform group-hover:translate-x-1 transition-transform">→</span>
               </button>
               <button
                 onClick={() => { setUserTrack('Experienced'); setStep('preferences'); }}
-                className="p-4 border-2 border-gray-200 hover:border-[#075A75] hover:bg-teal-50/50 rounded-xl text-left transition font-semibold text-gray-800 flex items-center justify-between"
+                className="p-5 border-2 border-gray-200 hover:border-[#075A75] hover:bg-teal-50/50 rounded-xl text-left transition font-semibold text-gray-800 flex items-center justify-between group"
               >
-                <span>⚡ I know what I like, looking for specific matches</span>
-                <span className="text-[#075A75]">→</span>
+                <span className="flex items-center gap-3">
+                  <span className="text-2xl">⚡</span> 
+                  I know what I like, looking for specific matches
+                </span>
+                <span className="text-[#075A75] transform group-hover:translate-x-1 transition-transform">→</span>
               </button>
             </div>
             
-            {/* NEW: Legal/Safety Disclaimer */}
-            <p className="text-xs text-gray-400 mt-6 px-4">
+            <p className="text-xs text-gray-400 mt-8 text-center px-4">
               Must be 21+ to use. Recommendations provided by Mari are for informational purposes only and do not constitute medical advice.
             </p>
           </div>
@@ -300,7 +328,6 @@ export default function Home() {
                 </label>
               </div>
               
-              {/* NEW: ARIA Live Region for Screen Readers */}
               <div aria-live="polite">
                 {error && <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
               </div>
