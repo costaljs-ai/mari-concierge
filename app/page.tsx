@@ -19,6 +19,44 @@ export default function Home() {
   const [chatInput, setChatInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // --- NEW: Auto-Compressor Function ---
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const MAX_WIDTH = 1200;
+          
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(new File([blob], "compressed_menu.jpg", { type: 'image/jpeg' }));
+            } else {
+              resolve(file); // Fallback to original if compression fails
+            }
+          }, 'image/jpeg', 0.8);
+        };
+        img.onerror = () => resolve(file);
+      };
+      reader.onerror = () => resolve(file);
+    });
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -36,8 +74,11 @@ export default function Home() {
     setError(null);
 
     try {
+      // Compress the image before sending it to the server
+      const compressedFile = await compressImage(selectedFile);
+      
       const formData = new FormData();
-      formData.append('file', selectedFile);
+      formData.append('file', compressedFile);
       formData.append('track', userTrack);
       formData.append('preferences', preferences);
 
@@ -69,8 +110,9 @@ export default function Home() {
 
     try {
       const formData = new FormData();
-      // Dummy file to satisfy API structure
-      formData.append('file', new Blob([''], { type: 'text/plain' }), 'dummy.txt'); 
+      // Dummy file to satisfy API structure for text-only follow-ups
+      const dummyBlob = new Blob([''], { type: 'text/plain' });
+      formData.append('file', new File([dummyBlob], 'dummy.txt', { type: 'text/plain' }));
       formData.append('track', userTrack);
       formData.append('preferences', userMsg);
       formData.append('chatHistory', JSON.stringify(chatMessages));
@@ -108,7 +150,7 @@ export default function Home() {
     <main className="min-h-screen bg-gray-50 text-gray-900 pb-20">
       {/* Centered, Clickable Branding Header */}
       <header className="flex justify-center items-center py-6 border-b border-gray-200 mb-10 bg-white shadow-sm">
-        <button onClick={restartIntake} className="flex items-center gap-3 group transition-all duration-300 hover:scale-[1.02] cursor-pointer bg-transparent border-none">
+        <button onClick={restartIntake} className="flex items-center gap-3 group transition-all duration-300 hover:scale-[1.02] cursor-pointer bg-transparent border-none outline-none">
           <div className="w-10 h-10 text-[#075A75]">
             <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M50 10C50 10 85 20 85 50C85 65 80 80 50 90C20 80 15 65 15 50C15 20 50 10 50 10Z" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
@@ -215,7 +257,7 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
               {chatMessages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-[#075A75] text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none whitespace-pre-wrap'}`}>
+                  <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-[#075A75] text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none whitespace-pre-wrap leading-relaxed'}`}>
                     {msg.content}
                   </div>
                 </div>
@@ -239,7 +281,7 @@ export default function Home() {
                   className="flex-1 p-3 border border-gray-300 rounded-xl focus:outline-none focus:border-[#075A75] text-sm"
                   disabled={loading}
                 />
-                <button type="submit" disabled={loading || !chatInput.trim()} className="px-5 bg-[#075A75] text-white rounded-xl font-semibold hover:bg-[#05455a] disabled:opacity-50">
+                <button type="submit" disabled={loading || !chatInput.trim()} className="px-5 bg-[#075A75] text-white rounded-xl font-semibold hover:bg-[#05455a] disabled:opacity-50 transition">
                   Send
                 </button>
               </form>
