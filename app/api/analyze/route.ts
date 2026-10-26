@@ -1,14 +1,11 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
-// Vercel Pro allows up to 300 seconds for AI processing
 export const maxDuration = 300; 
-// Force Vercel to always run the latest version, ignoring the cache
 export const dynamic = 'force-dynamic'; 
 
 export async function POST(req: Request) {
   try {
-    // Better Error Handling: Check if the request is actually JSON
     let body;
     try {
       body = await req.json();
@@ -23,7 +20,30 @@ export async function POST(req: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.8-flash' });
+
+    // --- NEW: Enterprise Fallback Function ---
+    // This will try 3.8-flash. If Google servers are busy (503), it instantly falls back to 4-argon.
+    const generateWithFallback = async (promptText: string, imagePart?: any) => {
+      const models = ['gemini-3.8-flash', 'gemini-4-argon'];
+      let lastError;
+
+      for (const modelName of models) {
+        try {
+          const model = genAI.getGenerativeModel({ model: modelName });
+          const payload = imagePart ? [promptText, imagePart] : promptText;
+          const result = await model.generateContent(payload);
+          return result.response.text();
+        } catch (error: any) {
+          console.warn(`Model ${modelName} failed:`, error.message);
+          lastError = error;
+          // If the error is NOT a 503 (server busy) or 429 (rate limit), don't bother retrying, just throw it.
+          if (!error.message.includes('503') && !error.message.includes('429') && !error.message.includes('unavailable')) {
+            throw error;
+          }
+        }
+      }
+      throw lastError; // If all fallback models are busy, then we finally throw the error.
+    };
 
     // Handle Follow-Up Chat
     if (chatHistory && Array.isArray(chatHistory)) {
@@ -34,8 +54,8 @@ export async function POST(req: Request) {
       Answer their latest question conversationally, keeping their experience level in mind.
       REMINDER: Do not provide medical advice.`;
       
-      const result = await model.generateContent(prompt);
-      return NextResponse.json({ analysis: result.response.text() });
+      const analysisText = await generateWithFallback(prompt);
+      return NextResponse.json({ analysis: analysisText });
     }
 
     // Handle Initial Image Upload
@@ -43,7 +63,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No menu image provided.' }, { status: 400 });
     }
 
-    // Validate Base64 format securely
     const matches = image.match(/^data:(image\/(jpeg|png|webp));base64,(.+)$/);
     if (!matches || matches.length !== 4) {
       return NextResponse.json({ error: 'Invalid image format. Only JPG, PNG, and WEBP are supported.' }, { status: 400 });
@@ -52,7 +71,6 @@ export async function POST(req: Request) {
     const mimeType = matches[1];
     const base64Data = matches[3];
 
-    // Payload size check
     if (base64Data.length > 5.3 * 1024 * 1024) { 
       return NextResponse.json({ error: 'Image is too large after processing. Please try a smaller image.' }, { status: 413 });
     }
@@ -73,17 +91,15 @@ export async function POST(req: Request) {
     - Include a brief statement that this is not medical advice.
     - Format clearly with bolding for product names.`;
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          data: base64Data,
-          mimeType: mimeType,
-        },
+    const imagePart = {
+      inlineData: {
+        data: base64Data,
+        mimeType: mimeType,
       },
-    ]);
+    };
 
-    return NextResponse.json({ analysis: result.response.text() });
+    const analysisText = await generateWithFallback(prompt, imagePart);
+    return NextResponse.json({ analysis: analysisText });
 
   } catch (error: unknown) {
     console.error('Gemini API Error:', error);
