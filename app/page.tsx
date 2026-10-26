@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
 
 export default function Home() {
   const [step, setStep] = useState<'welcome' | 'preferences' | 'upload' | 'results'>('welcome');
@@ -16,10 +15,20 @@ export default function Home() {
   
   const [chatMessages, setChatMessages] = useState<{role: string, content: string}[]>([]);
   const [chatInput, setChatInput] = useState('');
+  
   const chatEndRef = useRef<HTMLDivElement>(null);
+  // NEW: AbortController to cancel stale network requests if user restarts
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // NEW: Revoke Object URL to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const compressImage = (file: File): Promise<File> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = (event) => {
@@ -39,8 +48,9 @@ export default function Home() {
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
+          if (!ctx) return resolve(file);
           
+          ctx.drawImage(img, 0, 0, width, height);
           canvas.toBlob((blob) => {
             if (blob) {
               resolve(new File([blob], "compressed_menu.jpg", { type: 'image/jpeg' }));
@@ -49,9 +59,9 @@ export default function Home() {
             }
           }, 'image/jpeg', 0.8);
         };
-        img.onerror = () => resolve(file);
+        img.onerror = () => reject(new Error('Failed to load image for compression.'));
       };
-      reader.onerror = () => resolve(file);
+      reader.onerror = () => reject(new Error('Failed to read file.'));
     });
   };
 
@@ -67,6 +77,19 @@ export default function Home() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      
+      // NEW: Validate file type and size
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        setError('Please upload a valid image (JPG, PNG, or WEBP).');
+        return;
+      }
+      
+      if (file.size > 10 * 1024 * 1024) {
+        setError('File is too large. Please select an image under 10MB.');
+        return;
+      }
+
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
       setError(null);
@@ -80,13 +103,15 @@ export default function Home() {
     setLoading(true);
     setError(null);
 
+    // Cancel any existing request
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     try {
-      // 1. Compress the image
       const compressedFile = await compressImage(selectedFile);
-      // 2. Convert to Base64 Text String
       const base64Image = await fileToBase64(compressedFile);
       
-      // 3. Send as pure JSON text to bypass Vercel limits
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -95,15 +120,24 @@ export default function Home() {
           track: userTrack,
           preferences: preferences
         }),
+        signal: abortController.signal
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        throw new Error('Received an invalid response from the server.');
+      }
+
       if (!response.ok) throw new Error(data.error || 'Failed to analyze the menu.');
 
       setChatMessages([{ role: 'mari', content: data.analysis }]);
       setStep('results');
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong.');
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return; // Ignore cancellations
+      const errorMessage = err instanceof Error ? err.message : 'Something went wrong.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -115,26 +149,39 @@ export default function Home() {
 
     const userMsg = chatInput;
     setChatInput('');
-    setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    
+    // FIX: Build the new history array to send to the backend, avoiding stale state
+    const newChatHistory = [...chatMessages, { role: 'user', content: userMsg }];
+    setChatMessages(newChatHistory);
     setLoading(true);
+
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image: null,
           track: userTrack,
-          preferences: userMsg,
-          chatHistory: chatMessages
+          chatHistory: newChatHistory 
         }),
+        signal: abortController.signal
       });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        throw new Error('Received an invalid response from the server.');
+      }
+
+      if (!response.ok) throw new Error(data.error || 'Failed to get a response.');
 
       setChatMessages(prev => [...prev, { role: 'mari', content: data.analysis }]);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setChatMessages(prev => [...prev, { role: 'mari', content: 'Sorry, I had trouble processing that. Please try again.' }]);
     } finally {
       setLoading(false);
@@ -146,9 +193,11 @@ export default function Home() {
   }, [chatMessages]);
 
   const restartIntake = () => {
+    if (abortControllerRef.current) abortControllerRef.current.abort(); // Cancel active loads
     setStep('welcome');
     setPreferences('');
     setSelectedFile(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl); // Cleanup
     setPreviewUrl(null);
     setChatMessages([]);
     setError(null);
@@ -157,9 +206,9 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900 pb-20">
       <header className="flex justify-center items-center py-6 border-b border-gray-200 mb-10 bg-white shadow-sm">
-        <button onClick={restartIntake} className="flex items-center gap-3 group transition-all duration-300 hover:scale-[1.02] cursor-pointer bg-transparent border-none outline-none">
+        <button onClick={restartIntake} aria-label="Restart Intake" className="flex items-center gap-3 group transition-all duration-300 hover:scale-[1.02] cursor-pointer bg-transparent border-none outline-none">
           <div className="w-10 h-10 text-[#075A75]">
-            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
               <path d="M50 10C50 10 85 20 85 50C85 65 80 80 50 90C20 80 15 65 15 50C15 20 50 10 50 10Z" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M35 50C35 50 42 40 50 45C58 50 65 40 65 50C65 57 60 63 50 63C40 63 35 57 35 50Z" fill="currentColor"/>
               <path d="M50 25V35" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
@@ -194,6 +243,11 @@ export default function Home() {
                 <span className="text-[#075A75]">→</span>
               </button>
             </div>
+            
+            {/* NEW: Legal/Safety Disclaimer */}
+            <p className="text-xs text-gray-400 mt-6 px-4">
+              Must be 21+ to use. Recommendations provided by Mari are for informational purposes only and do not constitute medical advice.
+            </p>
           </div>
         )}
 
@@ -225,18 +279,32 @@ export default function Home() {
           <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 space-y-6">
             <h2 className="text-xl font-bold text-gray-800 text-center">Upload Your Dispensary Menu</h2>
             <form onSubmit={handleInitialSubmit} className="space-y-6">
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-[#075A75] transition-colors">
-                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="menu-upload" />
-                <label htmlFor="menu-upload" className="cursor-pointer flex flex-col items-center">
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-[#075A75] transition-colors relative">
+                <input 
+                  type="file" 
+                  accept="image/jpeg, image/png, image/webp" 
+                  onChange={handleFileChange} 
+                  className="hidden" 
+                  id="menu-upload"
+                  disabled={loading}
+                />
+                <label htmlFor="menu-upload" className={`cursor-pointer flex flex-col items-center ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
                   {previewUrl ? (
                     <img src={previewUrl} alt="Preview" className="max-h-48 rounded-lg object-contain mb-4 shadow" />
                   ) : (
-                    <div className="w-12 h-12 bg-teal-50 text-[#075A75] rounded-full flex items-center justify-center mb-3">📸</div>
+                    <div className="w-12 h-12 bg-teal-50 text-[#075A75] rounded-full flex items-center justify-center mb-3" aria-hidden="true">📸</div>
                   )}
-                  <span className="text-sm font-semibold text-gray-700">{selectedFile ? selectedFile.name : 'Click to upload menu photo'}</span>
+                  <span className="text-sm font-semibold text-gray-700">
+                    {selectedFile ? selectedFile.name : 'Click to upload menu photo'}
+                  </span>
                 </label>
               </div>
-              {error && <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
+              
+              {/* NEW: ARIA Live Region for Screen Readers */}
+              <div aria-live="polite">
+                {error && <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
+              </div>
+
               <button
                 type="submit"
                 disabled={loading || !selectedFile}
@@ -255,7 +323,7 @@ export default function Home() {
               <button onClick={restartIntake} className="text-xs text-[#075A75] font-semibold hover:underline">↺ Start Over</button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            <div className="flex-1 overflow-y-auto p-4 space-y-6" aria-live="polite">
               {chatMessages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-[#075A75] text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none whitespace-pre-wrap leading-relaxed'}`}>
@@ -280,6 +348,7 @@ export default function Home() {
                   placeholder="Ask Mari a follow-up question..."
                   className="flex-1 p-3 border border-gray-300 rounded-xl focus:outline-none focus:border-[#075A75] text-sm"
                   disabled={loading}
+                  aria-label="Chat input"
                 />
                 <button type="submit" disabled={loading || !chatInput.trim()} className="px-5 bg-[#075A75] text-white rounded-xl font-semibold hover:bg-[#05455a] disabled:opacity-50 transition">
                   Send
