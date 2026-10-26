@@ -108,7 +108,7 @@ export default function Home() {
       const compressedFile = await compressImage(selectedFile);
       const base64Image = await fileToBase64(compressedFile);
       
-      const response = await fetch('/api/analyze', {
+      const response = await fetch('/api/analyze-menu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -155,7 +155,7 @@ export default function Home() {
     abortControllerRef.current = abortController;
 
     try {
-      const response = await fetch('/api/analyze', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
