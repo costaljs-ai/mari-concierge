@@ -31,7 +31,7 @@ export function proxy(request: NextRequest) {
     record.count += 1;
     ipTracker.set(ip, record);
   }
-
+ 
   return NextResponse.next();
 }
 
