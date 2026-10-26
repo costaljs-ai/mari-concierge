@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 const ipTracker = new Map();
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === '/api/analyze') {
     
     // FIX: Pull IP exclusively from headers to satisfy Next.js strict typing
