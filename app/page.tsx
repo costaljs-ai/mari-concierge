@@ -14,12 +14,10 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Chat state
   const [chatMessages, setChatMessages] = useState<{role: string, content: string}[]>([]);
   const [chatInput, setChatInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // --- NEW: Auto-Compressor Function ---
   const compressImage = (file: File): Promise<File> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -47,13 +45,22 @@ export default function Home() {
             if (blob) {
               resolve(new File([blob], "compressed_menu.jpg", { type: 'image/jpeg' }));
             } else {
-              resolve(file); // Fallback to original if compression fails
+              resolve(file); 
             }
           }, 'image/jpeg', 0.8);
         };
         img.onerror = () => resolve(file);
       };
       reader.onerror = () => resolve(file);
+    });
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
     });
   };
 
@@ -74,17 +81,20 @@ export default function Home() {
     setError(null);
 
     try {
-      // Compress the image before sending it to the server
+      // 1. Compress the image
       const compressedFile = await compressImage(selectedFile);
+      // 2. Convert to Base64 Text String
+      const base64Image = await fileToBase64(compressedFile);
       
-      const formData = new FormData();
-      formData.append('file', compressedFile);
-      formData.append('track', userTrack);
-      formData.append('preferences', preferences);
-
+      // 3. Send as pure JSON text to bypass Vercel limits
       const response = await fetch('/api/analyze', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: base64Image,
+          track: userTrack,
+          preferences: preferences
+        }),
       });
 
       const data = await response.json();
@@ -109,17 +119,15 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const formData = new FormData();
-      // Dummy file to satisfy API structure for text-only follow-ups
-      const dummyBlob = new Blob([''], { type: 'text/plain' });
-      formData.append('file', new File([dummyBlob], 'dummy.txt', { type: 'text/plain' }));
-      formData.append('track', userTrack);
-      formData.append('preferences', userMsg);
-      formData.append('chatHistory', JSON.stringify(chatMessages));
-
       const response = await fetch('/api/analyze', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: null,
+          track: userTrack,
+          preferences: userMsg,
+          chatHistory: chatMessages
+        }),
       });
 
       const data = await response.json();
@@ -148,7 +156,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900 pb-20">
-      {/* Centered, Clickable Branding Header */}
       <header className="flex justify-center items-center py-6 border-b border-gray-200 mb-10 bg-white shadow-sm">
         <button onClick={restartIntake} className="flex items-center gap-3 group transition-all duration-300 hover:scale-[1.02] cursor-pointer bg-transparent border-none outline-none">
           <div className="w-10 h-10 text-[#075A75]">
@@ -167,8 +174,6 @@ export default function Home() {
       </header>
 
       <div className="max-w-xl mx-auto px-4">
-        
-        {/* STEP 1: WELCOME */}
         {step === 'welcome' && (
           <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 text-center space-y-6">
             <h2 className="text-2xl font-bold text-gray-800">Welcome, I'm Mari.</h2>
@@ -192,7 +197,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* STEP 2: NATURAL LANGUAGE PREFERENCES */}
         {step === 'preferences' && (
           <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 space-y-6">
             <h2 className="text-xl font-bold text-gray-800">Tell me what you're looking for.</h2>
@@ -217,7 +221,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* STEP 3: UPLOAD */}
         {step === 'upload' && (
           <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 space-y-6">
             <h2 className="text-xl font-bold text-gray-800 text-center">Upload Your Dispensary Menu</h2>
@@ -245,7 +248,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* STEP 4: RESULTS & CHAT */}
         {step === 'results' && (
           <div className="bg-white rounded-2xl shadow-md flex flex-col h-[75vh]">
             <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
@@ -253,7 +255,6 @@ export default function Home() {
               <button onClick={restartIntake} className="text-xs text-[#075A75] font-semibold hover:underline">↺ Start Over</button>
             </div>
             
-            {/* Chat History */}
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
               {chatMessages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -270,7 +271,6 @@ export default function Home() {
               <div ref={chatEndRef} />
             </div>
 
-            {/* Chat Input Area */}
             <div className="p-4 border-t bg-white rounded-b-2xl">
               <form onSubmit={handleChatSubmit} className="flex gap-2">
                 <input

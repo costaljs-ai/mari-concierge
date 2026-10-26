@@ -1,32 +1,26 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
-// This prevents Vercel from timing out on the free hobby tier
 export const maxDuration = 60; 
 
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
-    const track = formData.get('track') as string;
-    const preferences = formData.get('preferences') as string;
-    const chatHistory = formData.get('chatHistory') as string;
+    // Read the request as pure JSON instead of buggy FormData
+    const body = await req.json();
+    const { image, track, preferences, chatHistory } = body;
 
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json({ error: 'API key is missing.' }, { status: 500 });
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    // Using 1.5-flash for lightning-fast multimodal processing
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    let prompt = '';
-
-    // If this is a follow-up chat message
+    // Handle Follow-Up Chat
     if (chatHistory) {
-      prompt = `You are Mari the Concierge, a highly knowledgeable cannabis guide. 
+      const prompt = `You are Mari the Concierge, a highly knowledgeable cannabis guide. 
       The user is on the ${track} track. 
-      Here is the conversation history: ${chatHistory}
+      Here is the conversation history: ${JSON.stringify(chatHistory)}
       
       The user just asked a follow-up question: "${preferences}"
       Answer their question conversationally, keeping their experience level in mind.`;
@@ -35,11 +29,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ analysis: result.response.text() });
     }
 
-    // If this is the initial image upload
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Handle Initial Image Upload
+    if (!image) {
+      return NextResponse.json({ error: 'No menu image provided. Please try uploading again.' }, { status: 400 });
+    }
+
+    // Extract the raw base64 data and mime type from the string
+    const matches = image.match(/^data:(.+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return NextResponse.json({ error: 'Invalid image format received.' }, { status: 400 });
+    }
     
-    prompt = `You are Mari the Concierge, an expert cannabis guide.
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+
+    const prompt = `You are Mari the Concierge, an expert cannabis guide.
     The user is on the "${track}" track. 
     Their natural language preferences/goals are: "${preferences}".
 
@@ -57,8 +61,8 @@ export async function POST(req: Request) {
       prompt,
       {
         inlineData: {
-          data: buffer.toString('base64'),
-          mimeType: file.type,
+          data: base64Data,
+          mimeType: mimeType,
         },
       },
     ]);
