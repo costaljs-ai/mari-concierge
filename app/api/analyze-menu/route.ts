@@ -2,8 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-export const maxDuration = 300; 
-export const dynamic = 'force-dynamic'; 
+export const maxDuration = 300;  
 
 const UploadSchema = z.object({
   image: z.string().regex(/^data:image\/(jpeg|png|webp);base64,/, "Invalid image format"),
