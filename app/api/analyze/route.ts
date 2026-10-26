@@ -1,112 +1,72 @@
-import { NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { NextResponse } from 'next/server';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// This prevents Vercel from timing out on the free hobby tier
+export const maxDuration = 60; 
 
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
-    const imageFile = formData.get("image") as File;
-    const userProfileJson = formData.get("profile") as string;
+    const file = formData.get('file') as File;
+    const track = formData.get('track') as string;
+    const preferences = formData.get('preferences') as string;
+    const chatHistory = formData.get('chatHistory') as string;
 
-    if (!imageFile) {
-      return NextResponse.json({ error: "No menu image provided." }, { status: 400 });
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json({ error: 'API key is missing.' }, { status: 500 });
     }
 
-    const bytes = await imageFile.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const base64Image = buffer.toString("base64");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    // Using 1.5-flash for lightning-fast multimodal processing
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const imagePart = {
-      inlineData: {
-        data: base64Image,
-        mimeType: imageFile.type || "image/jpeg",
-      },
-    };
+    let prompt = '';
 
-    const systemInstruction = `
-      You are an elite Cannabis Chemovar Concierge AI ("The Mari Concierge"). 
-      Evaluate the dispensary menu image against the user's profile.
+    // If this is a follow-up chat message
+    if (chatHistory) {
+      prompt = `You are Mari the Concierge, a highly knowledgeable cannabis guide. 
+      The user is on the ${track} track. 
+      Here is the conversation history: ${chatHistory}
       
-      RULES:
-      1. Prioritize Chemovars and Lab COAs over generic marketing labels.
-      2. Provide a concise "budtender_script" if lab data is estimated.
-      3. Return ONLY valid raw JSON without markdown code blocks (no \`\`\`json). Match this exact structure:
-      {
-        "snapshot": "Summary of valid products found",
-        "top_matches": [
-          {
-            "rank": 1,
-            "name": "Strain Name",
-            "brand": "Grower/Brand",
-            "match_score": "96%",
-            "confidence": "Tier 1 - Lab-Verified COA",
-            "lineage": "Parent A x Parent B",
-            "why_it_fits": "Brief breakdown matching chemistry to user profile",
-            "thc": "24.64%",
-            "terpenes": "1.49%",
-            "budtender_script": "Ask budtender to confirm high Caryophyllene."
-          }
-        ],
-        "red_flag": {
-          "strain": "Strain Name to Avoid",
-          "reason": "Why it violates user red flags"
-        }
-      }
-    `;
-
-    const prompt = `
-      User Profile: ${userProfileJson}
-      Analyze the menu image and return the clean JSON recommendation output.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3.8-flash",
-      contents: [imagePart, prompt],
-      config: {
-        systemInstruction: systemInstruction,
-        responseMimeType: "application/json",
-        temperature: 0.2,
-        maxOutputTokens: 2048, // Increased token limit to prevent cutoffs
-      },
-    });
-
-    let rawText = response.text || "{}";
-    rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
-
-    let parsedData;
-    try {
-      parsedData = JSON.parse(rawText);
-    } catch (parseError) {
-      console.error("JSON Parse Error. Raw text was:", rawText);
-      // Fallback clean structure if JSON ever gets malformed
-      parsedData = {
-        snapshot: "Menu analyzed successfully, but formatting was adjusted.",
-        top_matches: [
-          {
-            rank: 1,
-            name: "Featured Selection",
-            brand: "Dispensary Select",
-            match_score: "90%",
-            confidence: "Tier 2 - Lineage Estimated",
-            lineage: "Balanced Hybrid",
-            why_it_fits: "Matches your requested wellness intent and terpene profile.",
-            thc: "22.5%",
-            terpenes: "1.2%",
-            budtender_script: "Ask the budtender to verify dominant terpene percentages on the jar."
-          }
-        ],
-        red_flag: {
-          strain: "High-Couchlock Strain",
-          reason: "May trigger heavy sedation that conflicts with your preferences."
-        }
-      };
+      The user just asked a follow-up question: "${preferences}"
+      Answer their question conversationally, keeping their experience level in mind.`;
+      
+      const result = await model.generateContent(prompt);
+      return NextResponse.json({ analysis: result.response.text() });
     }
 
-    return NextResponse.json(parsedData);
+    // If this is the initial image upload
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
     
+    prompt = `You are Mari the Concierge, an expert cannabis guide.
+    The user is on the "${track}" track. 
+    Their natural language preferences/goals are: "${preferences}".
+
+    Please analyze this dispensary menu image. 
+    1. Rank the top 3 best matching products for this user.
+    2. Explicitly state WHY each product's effects and terpene profile align with their goals.
+    
+    TONE INSTRUCTIONS:
+    - If they are "Beginner": Guide them gently. Educate them on what the terpenes do. Make them feel comfortable.
+    - If they are "Experienced": Be direct, focus on convenience, specific effects, and top-shelf terpene alignment without basic over-explaining.
+    
+    Format the response clearly with bolding for product names.`;
+
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          data: buffer.toString('base64'),
+          mimeType: file.type,
+        },
+      },
+    ]);
+
+    return NextResponse.json({ analysis: result.response.text() });
+
   } catch (error: any) {
-    console.error("Gemini API Error Details:", error);
-    return NextResponse.json({ error: error.message || "Failed to analyze menu." }, { status: 500 });
+    console.error('Gemini API Error:', error);
+    return NextResponse.json({ error: error.message || 'Failed to process.' }, { status: 500 });
   }
 }

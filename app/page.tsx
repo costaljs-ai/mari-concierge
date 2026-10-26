@@ -1,24 +1,23 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 
 export default function Home() {
-  // Navigation / Step state for the conversational intake
-  const [step, setStep] = useState<'welcome' | 'experience' | 'preferences' | 'upload' | 'results'>('welcome');
+  const [step, setStep] = useState<'welcome' | 'preferences' | 'upload' | 'results'>('welcome');
+  const [userTrack, setUserTrack] = useState<'Beginner' | 'Experienced'>('Beginner');
+  const [preferences, setPreferences] = useState('');
   
-  // User profile states
-  const [experienceLevel, setExperienceLevel] = useState<string>('');
-  const [reason, setReason] = useState<string>('');
-  const [desiredEffect, setDesiredEffect] = useState('Balanced & Relaxed');
-  const [consumptionMethod, setConsumptionMethod] = useState('Any / All');
-
-  // File and API analysis states
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<{role: string, content: string}[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -29,12 +28,9 @@ export default function Home() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleInitialSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile) {
-      setError('Please select or snap a picture of a menu first.');
-      return;
-    }
+    if (!selectedFile) return;
 
     setLoading(true);
     setError(null);
@@ -42,10 +38,8 @@ export default function Home() {
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
-      formData.append('experienceLevel', experienceLevel);
-      formData.append('reason', reason);
-      formData.append('desiredEffect', desiredEffect);
-      formData.append('consumptionMethod', consumptionMethod);
+      formData.append('track', userTrack);
+      formData.append('preferences', preferences);
 
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -53,27 +47,60 @@ export default function Home() {
       });
 
       const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to analyze the menu.');
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to analyze the menu.');
-      }
-
-      setResult(data);
+      setChatMessages([{ role: 'mari', content: data.analysis }]);
       setStep('results');
     } catch (err: any) {
-      setError(err.message || 'Something went wrong. Please try again.');
+      setError(err.message || 'Something went wrong.');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleChatSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const userMsg = chatInput;
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    setLoading(true);
+
+    try {
+      const formData = new FormData();
+      // Dummy file to satisfy API structure
+      formData.append('file', new Blob([''], { type: 'text/plain' }), 'dummy.txt'); 
+      formData.append('track', userTrack);
+      formData.append('preferences', userMsg);
+      formData.append('chatHistory', JSON.stringify(chatMessages));
+
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+
+      setChatMessages(prev => [...prev, { role: 'mari', content: data.analysis }]);
+    } catch (err: any) {
+      setChatMessages(prev => [...prev, { role: 'mari', content: 'Sorry, I had trouble processing that. Please try again.' }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
   const restartIntake = () => {
     setStep('welcome');
-    setExperienceLevel('');
-    setReason('');
+    setPreferences('');
     setSelectedFile(null);
     setPreviewUrl(null);
-    setResult(null);
+    setChatMessages([]);
     setError(null);
   };
 
@@ -81,8 +108,7 @@ export default function Home() {
     <main className="min-h-screen bg-gray-50 text-gray-900 pb-20">
       {/* Centered, Clickable Branding Header */}
       <header className="flex justify-center items-center py-6 border-b border-gray-200 mb-10 bg-white shadow-sm">
-        <Link href="/" onClick={restartIntake} className="flex items-center gap-3 group transition-all duration-300 hover:scale-[1.02] cursor-pointer">
-          {/* Integrated Guide Motif Icon */}
+        <button onClick={restartIntake} className="flex items-center gap-3 group transition-all duration-300 hover:scale-[1.02] cursor-pointer bg-transparent border-none">
           <div className="w-10 h-10 text-[#075A75]">
             <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M50 10C50 10 85 20 85 50C85 65 80 80 50 90C20 80 15 65 15 50C15 20 50 10 50 10Z" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
@@ -91,43 +117,30 @@ export default function Home() {
               <path d="M45 30H55" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
             </svg>
           </div>
-          
-          {/* Branding Text */}
-          <div className="flex flex-col">
-            <h1 className="text-3xl font-extrabold text-[#075A75] leading-none">
-              Mari
-            </h1>
-            <span className="text-sm text-gray-600 font-medium tracking-wide mt-1">
-              the Concierge
-            </span>
+          <div className="flex flex-col text-left">
+            <h1 className="text-3xl font-extrabold text-[#075A75] leading-none">Mari</h1>
+            <span className="text-sm text-gray-600 font-medium tracking-wide mt-1">the Concierge</span>
           </div>
-        </Link>
+        </button>
       </header>
 
-      {/* Main Interactive Flow Container */}
       <div className="max-w-xl mx-auto px-4">
         
-        {/* STEP 1: WELCOME / PURPOSE */}
+        {/* STEP 1: WELCOME */}
         {step === 'welcome' && (
           <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 text-center space-y-6">
-            <h2 className="text-2xl font-bold text-gray-800">
-              Welcome, I'm Mari.
-            </h2>
-            <p className="text-gray-600 text-sm">
-              What brings you here today? Let's tailor your experience.
-            </p>
-
+            <h2 className="text-2xl font-bold text-gray-800">Welcome, I'm Mari.</h2>
+            <p className="text-gray-600 text-sm">What brings you here today? Let's tailor your experience.</p>
             <div className="grid grid-cols-1 gap-3">
               <button
-                onClick={() => { setReason('Explore & Learn / New'); setStep('experience'); }}
+                onClick={() => { setUserTrack('Beginner'); setStep('preferences'); }}
                 className="p-4 border-2 border-gray-200 hover:border-[#075A75] hover:bg-teal-50/50 rounded-xl text-left transition font-semibold text-gray-800 flex items-center justify-between"
               >
                 <span>🌿 I'm exploring or new to this</span>
                 <span className="text-[#075A75]">→</span>
               </button>
-
               <button
-                onClick={() => { setReason('Curated Recommendations / Experienced'); setStep('experience'); }}
+                onClick={() => { setUserTrack('Experienced'); setStep('preferences'); }}
                 className="p-4 border-2 border-gray-200 hover:border-[#075A75] hover:bg-teal-50/50 rounded-xl text-left transition font-semibold text-gray-800 flex items-center justify-between"
               >
                 <span>⚡ I know what I like, looking for specific matches</span>
@@ -137,169 +150,99 @@ export default function Home() {
           </div>
         )}
 
-        {/* STEP 2: EXPERIENCE LEVEL ROUTING */}
-        {step === 'experience' && (
-          <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 space-y-6">
-            <div className="flex items-center justify-between border-b pb-3">
-              <button onClick={() => setStep('welcome')} className="text-sm text-gray-500 hover:text-gray-800">
-                ← Back
-              </button>
-              <span className="text-xs font-bold text-[#075A75] uppercase tracking-wider">Step 2 of 4</span>
-            </div>
-
-            <h2 className="text-xl font-bold text-gray-800 text-center">
-              How would you describe your experience level?
-            </h2>
-
-            <div className="space-y-3">
-              {['Beginner (Looking for gentle, low dose guidance)', 'Intermediate (Casual consumer)', 'Connoisseur (Seeking top-shelf profiles & potencies)'].map((lvl) => (
-                <button
-                  key={lvl}
-                  onClick={() => { setExperienceLevel(lvl); setStep('preferences'); }}
-                  className="w-full p-3.5 border-2 border-gray-200 hover:border-[#075A75] hover:bg-teal-50/50 rounded-xl text-left text-sm font-medium transition text-gray-800"
-                >
-                  {lvl}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* STEP 3: PREFERENCES */}
+        {/* STEP 2: NATURAL LANGUAGE PREFERENCES */}
         {step === 'preferences' && (
           <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 space-y-6">
-            <div className="flex items-center justify-between border-b pb-3">
-              <button onClick={() => setStep('experience')} className="text-sm text-gray-500 hover:text-gray-800">
-                ← Back
-              </button>
-              <span className="text-xs font-bold text-[#075A75] uppercase tracking-wider">Step 3 of 4</span>
-            </div>
-
-            <h2 className="text-xl font-bold text-gray-800 text-center">
-              What kind of effect & method are you looking for?
-            </h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Desired Effect</label>
-                <select 
-                  value={desiredEffect} 
-                  onChange={(e) => setDesiredEffect(e.target.value)}
-                  className="w-full p-3 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:ring-[#075A75] focus:border-[#075A75]"
-                >
-                  <option value="Balanced & Relaxed">Balanced & Relaxed</option>
-                  <option value="Energetic & Uplifted">Energetic & Uplifted</option>
-                  <option value="Deep Sleep & Pain Relief">Deep Sleep & Pain Relief</option>
-                  <option value="Creative & Focused">Creative & Focused</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Preferred Method</label>
-                <select 
-                  value={consumptionMethod} 
-                  onChange={(e) => setConsumptionMethod(e.target.value)}
-                  className="w-full p-3 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:ring-[#075A75] focus:border-[#075A75]"
-                >
-                  <option value="Any / All">Any / All</option>
-                  <option value="Flower">Flower</option>
-                  <option value="Vapes & Carts">Vapes & Carts</option>
-                  <option value="Edibles">Edibles</option>
-                  <option value="Concentrates">Concentrates</option>
-                </select>
-              </div>
-
-              <button
-                onClick={() => setStep('upload')}
-                className="w-full py-3 bg-[#075A75] hover:bg-[#05455a] text-white font-semibold rounded-xl shadow transition"
-              >
-                Continue to Menu Upload →
-              </button>
-            </div>
+            <h2 className="text-xl font-bold text-gray-800">Tell me what you're looking for.</h2>
+            <p className="text-sm text-gray-600">
+              {userTrack === 'Beginner' 
+                ? "In your own words, what kind of feeling or relief are you hoping to find today? Do you prefer smoking, edibles, or aren't sure?" 
+                : "Describe your ideal effects, preferred consumption methods, and any specific terpene profiles you're hunting for."}
+            </p>
+            <textarea
+              value={preferences}
+              onChange={(e) => setPreferences(e.target.value)}
+              placeholder="Type your thoughts here..."
+              className="w-full h-32 p-4 text-sm border border-gray-300 rounded-xl bg-gray-50 focus:ring-2 focus:ring-[#075A75] focus:outline-none resize-none"
+            />
+            <button
+              onClick={() => setStep('upload')}
+              disabled={!preferences.trim()}
+              className="w-full py-3 bg-[#075A75] hover:bg-[#05455a] text-white font-semibold rounded-xl shadow transition disabled:opacity-50"
+            >
+              Continue to Menu Upload →
+            </button>
           </div>
         )}
 
-        {/* STEP 4: MENU UPLOAD & SUBMIT */}
+        {/* STEP 3: UPLOAD */}
         {step === 'upload' && (
           <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 space-y-6">
-            <div className="flex items-center justify-between border-b pb-3">
-              <button onClick={() => setStep('preferences')} className="text-sm text-gray-500 hover:text-gray-800">
-                ← Back
-              </button>
-              <span className="text-xs font-bold text-[#075A75] uppercase tracking-wider">Step 4 of 4</span>
-            </div>
-
-            <h2 className="text-xl font-bold text-gray-800 text-center">
-              Upload Your Dispensary Menu
-            </h2>
-            <p className="text-gray-600 text-sm text-center">
-              Snap a photo or upload a screenshot of the menu so Mari can analyze it against your preferences.
-            </p>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <h2 className="text-xl font-bold text-gray-800 text-center">Upload Your Dispensary Menu</h2>
+            <form onSubmit={handleInitialSubmit} className="space-y-6">
               <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-[#075A75] transition-colors">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  id="menu-upload"
-                />
+                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="menu-upload" />
                 <label htmlFor="menu-upload" className="cursor-pointer flex flex-col items-center">
                   {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt="Menu Preview"
-                      className="max-h-48 rounded-lg object-contain mb-4 shadow"
-                    />
+                    <img src={previewUrl} alt="Preview" className="max-h-48 rounded-lg object-contain mb-4 shadow" />
                   ) : (
-                    <div className="w-12 h-12 bg-teal-50 text-[#075A75] rounded-full flex items-center justify-center mb-3">
-                      📸
-                    </div>
+                    <div className="w-12 h-12 bg-teal-50 text-[#075A75] rounded-full flex items-center justify-center mb-3">📸</div>
                   )}
-                  <span className="text-sm font-semibold text-gray-700">
-                    {selectedFile ? selectedFile.name : 'Click to upload or snap a menu photo'}
-                  </span>
-                  <span className="text-xs text-gray-500 mt-1">Supports JPG, PNG, WEBP</span>
+                  <span className="text-sm font-semibold text-gray-700">{selectedFile ? selectedFile.name : 'Click to upload menu photo'}</span>
                 </label>
               </div>
-
-              {error && (
-                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-                  {error}
-                </div>
-              )}
-
+              {error && <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
               <button
                 type="submit"
                 disabled={loading || !selectedFile}
-                className="w-full py-3 px-4 bg-[#075A75] hover:bg-[#05455a] text-white font-semibold rounded-xl shadow transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 bg-[#075A75] hover:bg-[#05455a] text-white font-semibold rounded-xl shadow transition disabled:opacity-50"
               >
-                {loading ? 'Mari is analyzing your menu...' : 'Get My Personalized Recommendations'}
+                {loading ? 'Mari is analyzing and ranking...' : 'Get My Rankings'}
               </button>
             </form>
           </div>
         )}
 
-        {/* STEP 5: RESULTS */}
-        {step === 'results' && result && (
-          <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 space-y-6">
-            <div className="flex justify-between items-center border-b pb-4">
-              <h2 className="text-xl font-bold text-gray-800">Mari's Recommendations</h2>
-              <button
-                onClick={restartIntake}
-                className="text-sm text-[#075A75] font-semibold hover:underline"
-              >
-                ↺ Start Over
-              </button>
+        {/* STEP 4: RESULTS & CHAT */}
+        {step === 'results' && (
+          <div className="bg-white rounded-2xl shadow-md flex flex-col h-[75vh]">
+            <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
+              <h2 className="font-bold text-gray-800">Your Session with Mari</h2>
+              <button onClick={restartIntake} className="text-xs text-[#075A75] font-semibold hover:underline">↺ Start Over</button>
+            </div>
+            
+            {/* Chat History */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-[#075A75] text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none whitespace-pre-wrap'}`}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-100 p-4 rounded-2xl rounded-bl-none text-sm text-gray-500 italic">Mari is typing...</div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
             </div>
 
-            <div className="prose text-gray-700 space-y-4">
-              {typeof result.analysis === 'string' ? (
-                <p className="whitespace-pre-wrap">{result.analysis}</p>
-              ) : (
-                <div>{JSON.stringify(result.analysis, null, 2)}</div>
-              )}
+            {/* Chat Input Area */}
+            <div className="p-4 border-t bg-white rounded-b-2xl">
+              <form onSubmit={handleChatSubmit} className="flex gap-2">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Ask Mari a follow-up question..."
+                  className="flex-1 p-3 border border-gray-300 rounded-xl focus:outline-none focus:border-[#075A75] text-sm"
+                  disabled={loading}
+                />
+                <button type="submit" disabled={loading || !chatInput.trim()} className="px-5 bg-[#075A75] text-white rounded-xl font-semibold hover:bg-[#05455a] disabled:opacity-50">
+                  Send
+                </button>
+              </form>
             </div>
           </div>
         )}
