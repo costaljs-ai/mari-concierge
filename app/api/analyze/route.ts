@@ -1,7 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
-export const maxDuration = 60; 
+// Vercel Pro allows up to 300 seconds for AI processing
+export const maxDuration = 300; 
+// Force Vercel to always run the latest version, ignoring the cache
+export const dynamic = 'force-dynamic'; 
 
 export async function POST(req: Request) {
   try {
@@ -49,8 +52,7 @@ export async function POST(req: Request) {
     const mimeType = matches[1];
     const base64Data = matches[3];
 
-    // Payload size check (rough estimate based on Base64 string length)
-    // ~4MB limit on the base64 string to keep well under Vercel's 4.5MB limit
+    // Payload size check
     if (base64Data.length > 5.3 * 1024 * 1024) { 
       return NextResponse.json({ error: 'Image is too large after processing. Please try a smaller image.' }, { status: 413 });
     }
