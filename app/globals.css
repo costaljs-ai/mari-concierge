@@ -1,26 +1,93 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * ============================================================
+ *  MARI DESIGN SYSTEM — the single source of truth for color,
+ *  type, radius and shadow. Every screen uses these tokens.
+ *  See them all rendered at  /styleguide
+ *
+ *  Want to change the brand blue? Change --color-fjord here
+ *  and the whole app follows. Never hard-code hex values in
+ *  components.
+ * ============================================================
+ */
+@theme {
+  /* Surfaces — quiet Nordic paper tones */
+  --color-paper: #f6f8f7;        /* app background */
+  --color-mist: #edf2f1;         /* subtle fills, hover */
+  --color-surface: #ffffff;      /* cards, composer */
+  --color-line: #dfe7e5;         /* hairline borders */
+  --color-line-strong: #c9d6d6;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Ink — text, from strongest to faintest */
+  --color-ink: #1e2d3a;
+  --color-ink-soft: #4a5d6a;
+  --color-ink-faint: #7f929d;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Fjord blue — the brand color: actions, links, Mari's voice */
+  --color-fjord: #3b6e8c;
+  --color-fjord-deep: #2b5670;
+  --color-fjord-wash: #e5eef3;
+
+  /* Sage — calm, growth, "good match" */
+  --color-sage: #6f9383;
+  --color-sage-deep: #4f7364;
+  --color-sage-wash: #e6efea;
+
+  /* Sand — warmth, gentle highlights, check-ins */
+  --color-sand: #e3b955;
+  --color-sand-deep: #8a6a1f;
+  --color-sand-wash: #fbf3df;
+
+  /* Clay — errors, kept soft (never alarm red) */
+  --color-clay: #a45a4f;
+  --color-clay-wash: #f8ebe8;
+
+  /* Type */
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-newsreader), ui-serif, Georgia, serif;
+
+  /* Shape */
+  --radius-card: 1.25rem;
+  --radius-control: 0.875rem;
+
+  /* Depth — soft and low, never harsh */
+  --shadow-soft: 0 1px 2px rgb(30 45 58 / 0.04), 0 4px 16px rgb(30 45 58 / 0.05);
+  --shadow-lift: 0 2px 4px rgb(30 45 58 / 0.05), 0 12px 32px rgb(30 45 58 / 0.08);
+
+  /* Motion */
+  --animate-rise: rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-breathe: breathe 1.4s ease-in-out infinite;
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.25; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1); }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+  }
+  ::selection {
+    @apply bg-fjord-wash text-ink;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-fjord;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
