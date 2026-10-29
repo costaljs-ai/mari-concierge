@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
+import { track } from "@/lib/analytics";
 import type { Pick } from "@/lib/format";
 import { findTerpene, type Terpene } from "@/lib/terpenes";
 import { Markdown } from "./markdown";
@@ -30,7 +31,15 @@ export function PickCard({ pick }: { pick: Pick }) {
       {pick.terpenes.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-5 pt-4">
           {pick.terpenes.map((label) => (
-            <TerpeneChip key={label} label={label} active={open?.name} onSelect={setOpen} />
+            <TerpeneChip
+              key={label}
+              label={label}
+              active={open?.name}
+              onSelect={(t) => {
+                if (t) track('terpene_opened', { terpene: t.name });
+                setOpen(t);
+              }}
+            />
           ))}
         </div>
       )}

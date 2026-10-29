@@ -4,10 +4,12 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type FileUIPart, type UIMessage } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Camera, Leaf, MessageCircle, RotateCcw } from 'lucide-react';
+import { AgeGate } from '@/components/age-gate';
 import { Composer } from '@/components/composer';
 import { Markdown } from '@/components/markdown';
 import { MariMark } from '@/components/mari-mark';
 import { PickCard } from '@/components/pick-card';
+import { track } from '@/lib/analytics';
 import { extractPickNames, toBlocks } from '@/lib/format';
 import { compressImage, MAX_INPUT_BYTES } from '@/lib/image';
 import {
@@ -28,6 +30,14 @@ const STARTERS = [
 ];
 
 export default function Home() {
+  return (
+    <AgeGate>
+      <Concierge />
+    </AgeGate>
+  );
+}
+
+function Concierge() {
   const transport = useMemo(
     () =>
       new DefaultChatTransport<UIMessage>({
@@ -45,8 +55,12 @@ export default function Home() {
     onFinish: ({ message, isError, isAbort }) => {
       if (isError || isAbort) return;
       const names = extractPickNames(textOf(message));
-      if (names.length) saveMemory({ lastPicks: names, lastPicksAt: Date.now() });
+      if (names.length) {
+        saveMemory({ lastPicks: names, lastPicksAt: Date.now() });
+        track('picks_shown', { count: names.length });
+      }
     },
+    onError: () => track('answer_failed'),
   });
 
   const [input, setInput] = useState('');
@@ -106,10 +120,23 @@ export default function Home() {
     }
   }, []);
 
-  const send = (text: string, withImage: string | null = image) => {
+  // Counted once per visit, the moment the check-in card appears.
+  const checkInTracked = useRef(false);
+  useEffect(() => {
+    if (checkInDue && !started && !checkInTracked.current) {
+      checkInTracked.current = true;
+      track('checkin_shown');
+    }
+  }, [checkInDue, started]);
+
+  const send = (text: string, withImage: string | null = image, via: 'typed' | 'starter' = 'typed') => {
     const body = text.trim() || (withImage ? 'Here’s the menu. What would you recommend for me?' : '');
     if (!body || busy) return;
     if (text.trim()) rememberNote(text);
+    const turn = messages.filter((m) => m.role === 'user').length + 1;
+    if (turn === 1) track('chat_started', { via });
+    track('message_sent', { turn, has_menu: Boolean(withImage) });
+    if (withImage) track('menu_uploaded', { turn });
     const files: FileUIPart[] | undefined = withImage
       ? [{ type: 'file', mediaType: 'image/jpeg', url: withImage, filename: 'menu.jpg' }]
       : undefined;
@@ -122,6 +149,7 @@ export default function Home() {
   };
 
   const reset = () => {
+    if (started) track('consult_reset');
     stop();
     setMessages([]);
     setInput('');
@@ -134,6 +162,7 @@ export default function Home() {
   const startCheckIn = () => {
     if (!memory) return;
     const picks = memory.lastPicks.slice(0, 3);
+    track('checkin_started');
     saveMemory({ checkInDismissedAt: Date.now() });
     setMessages([
       {
@@ -150,6 +179,7 @@ export default function Home() {
   };
 
   const dismissCheckIn = () => {
+    track('checkin_dismissed');
     saveMemory({ checkInDismissedAt: Date.now() });
   };
 
@@ -204,7 +234,7 @@ export default function Home() {
             checkIn={checkInDue && memory ? memory.lastPicks : null}
             onCheckIn={startCheckIn}
             onDismissCheckIn={dismissCheckIn}
-            onStarter={(s) => send(s, null)}
+            onStarter={(s) => send(s, null, 'starter')}
             returning={Boolean(memory?.notes.length)}
           />
         ) : (

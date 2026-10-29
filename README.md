@@ -80,13 +80,52 @@ shapes future recommendations. No account or email needed.
 
 ---
 
-## Part 4 — What's next before a public launch
+## Part 4 — Age gate and analytics
+
+### Age gate
+Every visitor confirms they're 21+ before seeing Mari. "Yes" is remembered on that device for 30 days.
+"No" lasts only for that browser tab, and there's an "I tapped the wrong button" link, so nobody gets
+stuck. The wording lives in `components/age-gate.tsx`.
+
+### Analytics (PostHog, free tier)
+Mari counts what happens, never what people write: no message text, no photos, no screen
+recordings, no cookies. Until you add a key, analytics are switched off and nothing is sent.
+
+**One-time setup (about 10 minutes):**
+1. Sign up at https://posthog.com (choose the **US** region).
+2. When it asks for a platform, pick **Web**. Copy the **Project API key** (it starts with `phc_`).
+   This key is meant to be public, so it's safe in the browser.
+3. **On Vercel:** your project → **Settings → Environment Variables** → add
+   `NEXT_PUBLIC_POSTHOG_KEY` = your `phc_…` key, for **Production** and **Preview**. Then
+   **Deployments → ⋯ → Redeploy** so the key takes effect.
+4. *(Optional, for local testing)* add the same line to `.env.local` and restart `npm run dev`.
+
+**Events Mari sends:**
+| Event | When |
+|---|---|
+| `age_gate_passed` / `age_gate_declined` | Age question answered |
+| `chat_started` | First message (`via`: starter button or typed) |
+| `message_sent` | Every message (`turn`, `has_menu`) |
+| `menu_uploaded` | A menu photo was sent |
+| `picks_shown` | Mari returned recommendation cards (`count`) |
+| `terpene_opened` | A terpene chip was tapped (`terpene`) |
+| `checkin_shown` / `checkin_started` / `checkin_dismissed` | 48-hour check-in |
+| `answer_failed` | Mari couldn't answer (watch this after deploys) |
+| `consult_reset` | "New consult" tapped |
+
+**Your first dashboard:** in PostHog, **Product analytics → New insight → Funnel** with steps
+`$pageview` → `age_gate_passed` → `chat_started` → `menu_uploaded` → `picks_shown`.
+The `menu_uploaded` step is the number that tells you whether Mari is working. Add a
+**Retention** insight on `picks_shown` to see who comes back.
+
+---
+
+## Part 5 — What's next before a public launch
 
 1. **Real notifications** (email or text at 48 hours) need accounts + a scheduled job. Suggested stack:
    Vercel Cron + a database (Vercel Postgres or Supabase) + Resend (email) or Twilio (SMS).
 2. **Shared rate limiting**: `proxy.ts` limits each visitor to 40 messages / 10 min, but on Vercel each
    server counts separately. Swap in Upstash Redis before marketing pushes.
-3. **Age gate + terms**: a simple 21+ confirmation screen and a privacy note.
-4. **Analytics**: Vercel Analytics (one click) to see how many guests upload a menu.
-5. **Dispensary edition**: the same chat can be embedded on a dispensary site with their live menu
+3. **Terms of service + privacy policy pages** (the age gate already has a short privacy note).
+4. **Dispensary edition**: the same chat can be embedded on a dispensary site with their live menu
    fed in as text instead of a photo, which makes it even faster.
