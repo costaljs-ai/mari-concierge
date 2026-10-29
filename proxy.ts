@@ -1,29 +1,29 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const ipTracker = new Map();
+/**
+ * Light abuse protection for the chat endpoint: 40 messages per 10 minutes per IP.
+ * Note: this lives in memory, so on Vercel each server instance counts separately.
+ * Before a big public launch, swap in a shared store (e.g. Upstash Redis).
+ */
+const WINDOW_MS = 10 * 60 * 1000;
+const MAX_REQUESTS = 40;
+const ipTracker = new Map<string, { count: number; firstRequestTime: number }>();
 
 export function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname === '/api/analyze') {
-    
-    // FIX: Pull IP exclusively from headers to satisfy Next.js strict typing
-    const ip = request.headers.get('x-forwarded-for') || 'unknown-ip';
-    
+  if (request.nextUrl.pathname === '/api/chat' && request.method === 'POST') {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown-ip';
     const now = Date.now();
-    const windowSize = 10 * 60 * 1000; // 10 minutes in milliseconds
-    const maxRequests = 5; // The limit: 5 uploads per 10 minutes per IP
+    const record = ipTracker.get(ip) ?? { count: 0, firstRequestTime: now };
 
-    const record = ipTracker.get(ip) || { count: 0, firstRequestTime: now };
-
-    if (now - record.firstRequestTime > windowSize) {
+    if (now - record.firstRequestTime > WINDOW_MS) {
       record.count = 0;
       record.firstRequestTime = now;
     }
 
-    if (record.count >= maxRequests) {
-      console.warn(`Bouncer blocked IP ${ip} for spamming.`);
+    if (record.count >= MAX_REQUESTS) {
       return NextResponse.json(
-        { error: 'You have reached the temporary upload limit. Please wait 10 minutes before uploading again.' }, 
+        { error: "You've sent a lot of messages in a short time. Please take a breather and try again in a few minutes." },
         { status: 429 }
       );
     }
@@ -31,7 +31,7 @@ export function proxy(request: NextRequest) {
     record.count += 1;
     ipTracker.set(ip, record);
   }
- 
+
   return NextResponse.next();
 }
 
