@@ -17,7 +17,7 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: "Mari — your cannabis concierge",
   description:
-    "Tell Mari how you want to feel, snap a dispensary menu, and get calm, personalized picks explained in plain language.",
+    "Tell Mari how you want to feel, share a photo or screenshot of a dispensary menu, and get calm, personalized picks explained in plain language.",
 };
 
 export const viewport: Viewport = {
