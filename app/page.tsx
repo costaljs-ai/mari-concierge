@@ -24,7 +24,6 @@ import { keepLatestImageOnly } from '@/lib/messages';
 const STARTERS = [
   "I've never tried cannabis. Where do I even start?",
   'I know what I like. Help me find it on a menu.',
-  'I want something to help me sleep without feeling groggy.',
 ];
 
 export default function Home() {
