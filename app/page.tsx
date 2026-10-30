@@ -287,8 +287,12 @@ function Welcome({
         {returning ? 'Welcome back.' : 'Hello, I’m Mari.'}
       </h1>
       <p className="mt-4 max-w-md text-[1.02rem] leading-relaxed text-ink-soft">
-        Tell me how you’d like to feel. When you’re at the dispensary, snap a photo of the menu and I’ll find your best
-        matches — and explain why, in plain language.
+        Tell me how you’d like to feel, then share a photo or screenshot of the dispensary menu. I’ll find your best
+        matches and explain why, in plain language.
+      </p>
+      <p className="mt-3 max-w-md text-[1.02rem] leading-relaxed text-ink-soft">
+        The more detail I can see, like terpene profiles, the better my picks. For the best recommendations, include the
+        lab results.
       </p>
 
       {checkIn && (
@@ -329,7 +333,7 @@ function Welcome({
       <ol className="mt-12 grid w-full max-w-md grid-cols-3 gap-3 text-center">
         {[
           { icon: MessageCircle, label: 'Share how you want to feel' },
-          { icon: Camera, label: 'Snap the dispensary menu' },
+          { icon: Camera, label: 'Share a menu photo or screenshot' },
           { icon: Leaf, label: 'Get picks, explained' },
         ].map(({ icon: Icon, label }, i) => (
           <li key={label} className="flex flex-col items-center gap-2">

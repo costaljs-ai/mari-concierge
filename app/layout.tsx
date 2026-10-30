@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Newsreader } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -16,7 +17,7 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: "Mari — your cannabis concierge",
   description:
-    "Tell Mari how you want to feel, snap a dispensary menu, and get calm, personalized picks explained in plain language.",
+    "Tell Mari how you want to feel, share a photo or screenshot of a dispensary menu, and get calm, personalized picks explained in plain language.",
 };
 
 export const viewport: Viewport = {
@@ -29,7 +30,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${manrope.variable} ${newsreader.variable} h-full`}>
-      <body className="min-h-dvh">{children}</body>
+      <body className="min-h-dvh">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
