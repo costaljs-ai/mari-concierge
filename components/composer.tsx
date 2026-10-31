@@ -86,8 +86,8 @@ export function Composer({
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          aria-label="Add a menu photo"
-          title="Add a menu photo"
+          aria-label="Add a menu photo or screenshot"
+          title="Add a menu photo or screenshot"
           className="flex size-11 shrink-0 items-center justify-center rounded-full text-fjord transition hover:bg-fjord-wash"
         >
           <Camera className="size-5" strokeWidth={1.8} />

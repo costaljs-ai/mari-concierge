@@ -7,7 +7,7 @@ import { Camera, Leaf, MessageCircle, RotateCcw } from 'lucide-react';
 import { AgeGate } from '@/components/age-gate';
 import { Composer } from '@/components/composer';
 import { Markdown } from '@/components/markdown';
-import { MariMark } from '@/components/mari-mark';
+import { MariLogo, MariMark } from '@/components/mari-mark';
 import { PickCard } from '@/components/pick-card';
 import { track } from '@/lib/analytics';
 import { extractPickNames, toBlocks } from '@/lib/format';
@@ -26,7 +26,6 @@ import { keepLatestImageOnly } from '@/lib/messages';
 const STARTERS = [
   "I've never tried cannabis. Where do I even start?",
   'I know what I like. Help me find it on a menu.',
-  'I want something to help me sleep without feeling groggy.',
 ];
 
 export default function Home() {
@@ -202,20 +201,20 @@ function Concierge() {
         if (f) void attach(f);
       }}
     >
-      {/* Header — the emblem always brings you home */}
-      <header className="sticky top-0 z-20 border-b border-transparent bg-paper/85 backdrop-blur-md supports-[backdrop-filter]:bg-paper/70">
-        <div className="mx-auto grid h-16 max-w-2xl grid-cols-[1fr_auto_1fr] items-center px-4">
-          <span />
-          <button
-            onClick={reset}
-            className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-3 transition hover:bg-mist"
-            aria-label="Mari home — start a new consultation"
-          >
-            <MariMark size={34} />
-            <span className="font-display text-[1.35rem] tracking-wide text-ink">Mari</span>
-          </button>
-          <div className="flex justify-end">
-            {started && (
+      {/* Header — only during a chat; the welcome screen's logo is the one "Mari" there. The badge brings you home. */}
+      {started && (
+        <header className="sticky top-0 z-20 border-b border-transparent bg-paper/85 backdrop-blur-md supports-[backdrop-filter]:bg-paper/70">
+          <div className="mx-auto grid h-16 max-w-2xl grid-cols-[1fr_auto_1fr] items-center px-4">
+            <span />
+            <button
+              onClick={reset}
+              className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-3 transition hover:bg-mist"
+              aria-label="Mari home — start a new consultation"
+            >
+              <MariMark size={36} priority />
+              <span className="font-display text-[1.35rem] tracking-wide text-ink">Mari</span>
+            </button>
+            <div className="flex justify-end">
               <button
                 onClick={reset}
                 className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-mist hover:text-ink"
@@ -223,10 +222,10 @@ function Concierge() {
                 <RotateCcw className="size-3.5" />
                 <span className="hidden sm:inline">New consult</span>
               </button>
-            )}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-48">
         {!started ? (
@@ -259,8 +258,9 @@ function Concierge() {
       </main>
 
       {/* Composer — pinned to the bottom, above the safe area on phones */}
-      <div className="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-paper via-paper/95 to-paper/0 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-8">
-        <div className="mx-auto max-w-2xl px-3 sm:px-4">
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-paper via-paper/95 to-paper/0 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-8">
+        {/* The fade above is see-through to taps; only the composer itself catches them. */}
+        <div className="pointer-events-auto mx-auto max-w-2xl px-3 sm:px-4">
           {notice && (
             <p role="alert" className="animate-rise mb-2 rounded-control bg-clay-wash px-4 py-2.5 text-sm text-clay">
               {notice}
@@ -310,16 +310,19 @@ function Welcome({
   returning: boolean;
 }) {
   return (
-    <section className="animate-rise flex flex-col items-center pt-10 text-center sm:pt-16">
-      <div className="rounded-full bg-surface p-1.5 shadow-lift">
-        <MariMark size={84} />
-      </div>
-      <h1 className="mt-7 font-display text-[2.4rem] leading-[1.1] text-ink sm:text-5xl">
-        {returning ? 'Welcome back.' : 'Hello, I’m Mari.'}
+    // Phones: compact so the instructions and both starter buttons fit above the message box on first view.
+    <section className="animate-rise flex flex-col items-center pt-5 text-center sm:pt-16 sm:short:pt-8 sm:tiny:pt-5">
+      <MariLogo />
+      <h1 className="mt-3 font-display text-[1.45rem] leading-[1.2] text-ink sm:mt-6 sm:text-[2rem] sm:tiny:mt-3 sm:tiny:text-[1.6rem]">
+        {returning ? 'Welcome back.' : 'So glad you’re here.'}
       </h1>
-      <p className="mt-4 max-w-md text-[1.02rem] leading-relaxed text-ink-soft">
-        Tell me how you’d like to feel. When you’re at the dispensary, snap a photo of the menu and I’ll find your best
-        matches — and explain why, in plain language.
+      <p className="mt-2 max-w-md text-[0.95rem] leading-normal text-ink-soft sm:mt-4 sm:text-[1.02rem] sm:leading-relaxed">
+        Tell me how you’d like to feel, then share a photo or screenshot of the dispensary menu. I’ll find your best
+        matches and explain why, in plain language.
+      </p>
+      <p className="mt-2 max-w-md text-[0.95rem] leading-normal text-ink-soft sm:mt-3 sm:text-[1.02rem] sm:leading-relaxed">
+        The more detail I can see, like terpene profiles, the better my picks. For the best recommendations, include the
+        lab results.
       </p>
 
       {checkIn && (
@@ -345,12 +348,12 @@ function Welcome({
         </div>
       )}
 
-      <div className="mt-9 flex w-full max-w-md flex-col gap-2.5">
+      <div className="mt-5 flex w-full max-w-md flex-col gap-2 sm:mt-9 sm:gap-2.5 sm:short:mt-6 sm:tiny:mt-4">
         {STARTERS.map((s) => (
           <button
             key={s}
             onClick={() => onStarter(s)}
-            className="rounded-card border border-line bg-surface px-5 py-3.5 text-left text-[0.95rem] text-ink shadow-soft transition hover:-translate-y-px hover:border-fjord/30 hover:shadow-lift"
+            className="rounded-card border border-line bg-surface px-5 py-3 text-left sm:py-3.5 text-[0.95rem] text-ink shadow-soft transition hover:-translate-y-px hover:border-fjord/30 hover:shadow-lift"
           >
             {s}
           </button>
@@ -360,7 +363,7 @@ function Welcome({
       <ol className="mt-12 grid w-full max-w-md grid-cols-3 gap-3 text-center">
         {[
           { icon: MessageCircle, label: 'Share how you want to feel' },
-          { icon: Camera, label: 'Snap the dispensary menu' },
+          { icon: Camera, label: 'Share a menu photo or screenshot' },
           { icon: Leaf, label: 'Get picks, explained' },
         ].map(({ icon: Icon, label }, i) => (
           <li key={label} className="flex flex-col items-center gap-2">
