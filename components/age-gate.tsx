@@ -28,7 +28,7 @@ function Screen({ underage }: { underage: boolean }) {
         className="animate-rise w-full max-w-sm rounded-[1.75rem] border border-line bg-surface px-7 pb-7 pt-9 text-center shadow-lift"
       >
         <div className="mx-auto w-fit rounded-full bg-surface p-1 shadow-soft">
-          <MariMark size={64} />
+          <MariMark size={64} priority />
         </div>
 
         {underage ? (
