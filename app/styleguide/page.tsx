@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { ArrowUp, Camera } from 'lucide-react';
-import { MariMark } from '@/components/mari-mark';
+import { MariLogo, MariMark } from '@/components/mari-mark';
 import { PickCard, TerpeneChip } from '@/components/pick-card';
 import { Markdown } from '@/components/markdown';
 
@@ -30,6 +30,20 @@ export default function StyleGuide() {
           <h1 className="font-display text-4xl text-ink">Mari style guide</h1>
         </div>
       </header>
+
+      <Section
+        title="Logo"
+        note="Full logo for large, centered moments (welcome screen, link previews). Below ~80px use the face mark — the full illustration loses its detail. Files live in public/brand/."
+      >
+        <div className="flex flex-wrap items-end gap-10 rounded-card border border-line bg-surface p-8">
+          <MariLogo />
+          <div className="flex items-end gap-4">
+            <MariMark size={96} />
+            <MariMark size={48} />
+            <MariMark size={32} />
+          </div>
+        </div>
+      </Section>
 
       <Section title="Principles">
         <ul className="grid gap-3 sm:grid-cols-3">
